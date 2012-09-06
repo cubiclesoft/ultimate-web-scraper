@@ -199,6 +199,7 @@
 		else
 		{
 			$abspath = explode("/", $base["path"]);
+			array_pop($abspath);
 			$relpath = explode("/", $relative["path"]);
 			foreach ($relpath as $piece)
 			{
