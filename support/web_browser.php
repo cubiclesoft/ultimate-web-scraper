@@ -289,8 +289,8 @@
 							$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
 							if (substr($cookie["path"], -1) != "/")  $cookie["path"] = "/";
 
-							if (!$this->data["cookies"][$cookie["domain"]])  $this->data["cookies"][$cookie["domain"]] = array();
-							if (!$this->data["cookies"][$cookie["domain"]][$cookie["path"]])  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
+							if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
+							if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
 							$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
 						}
 					}
