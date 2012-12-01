@@ -70,7 +70,7 @@
 
 			do
 			{
-				if (!isset($this->data["allowedprotocols"][$urlinfo["scheme"]]) && !$this->data["allowedprotocols"][$urlinfo["scheme"]])
+				if (!isset($this->data["allowedprotocols"][$urlinfo["scheme"]]) || !$this->data["allowedprotocols"][$urlinfo["scheme"]])
 				{
 					return array("success" => false, "error" => HTTPTranslate("Protocol '%s' is not allowed in '%s'.", $urlinfo["scheme"], $url), "errorcode" => "allowed_protocols");
 				}

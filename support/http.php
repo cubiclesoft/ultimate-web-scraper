@@ -53,7 +53,8 @@
 		$url = str_replace("\\", "/", $url);
 
 		$pos = strpos($url, ":");
-		if ($pos !== false)
+		$pos2 = strpos($url, "/");
+		if ($pos !== false && ($pos2 === false || $pos < $pos2))
 		{
 			$result["scheme"] = strtolower(substr($url, 0, $pos));
 			$url = substr($url, $pos + 1);
@@ -418,7 +419,7 @@
 			$line = trim(substr($data, 0, $pos));
 			$data = substr($data, $pos + 1);
 			$rawrecvheadersize += $pos + 1;
-			$response = explode(" ", $line);
+			$response = explode(" ", $line, 3);
 			$response = array(
 				"line" => $line,
 				"httpver" => strtoupper($response[0]),
