@@ -160,14 +160,14 @@
 				{
 					if (substr($domain, -strlen($dothost)) == $dothost)
 					{
-						foreach ($paths as $path => $cookies)
+						foreach ($paths as $path => $cookies2)
 						{
-							if (substr($path, 0, strlen($cookiepath)) == $cookiepath)
+							if (substr($cookiepath, 0, strlen($path)) == $path)
 							{
-								foreach ($cookies as $num => $info)
+								foreach ($cookies2 as $num => $info)
 								{
 									if (isset($info["expires_ts"]) && $this->GetExpiresTimestamp($info["expires_ts"]) < time())  unset($this->data["cookies"][$domain][$path][$num]);
-									else if ($secure && isset($info["secure"]))  $cookies[$info["name"]] = $info["value"];
+									else if ($secure || !isset($info["secure"]))  $cookies[$info["name"]] = $info["value"];
 								}
 
 								if (!count($this->data["cookies"][$domain][$path]))  unset($this->data["cookies"][$domain][$path]);
