@@ -559,7 +559,7 @@
 					$rawrecvheadersize += $pos + 1;
 					if ($header != "")
 					{
-						if ($lastheader != "" && substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t")  $headers[$lastheader][count($headers[$lastheader]) - 1] .= $header;
+						if ($lastheader != "" && (substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t"))  $headers[$lastheader][count($headers[$lastheader]) - 1] .= $header;
 						else
 						{
 							$pos = strpos($header, ":");
