@@ -61,10 +61,10 @@
 
 			if (!isset($tempoptions["headers"]))  $tempoptions["headers"] = array();
 			$tempoptions["headers"] = HTTPNormalizeHeaders($tempoptions["headers"]);
-			$referer = (isset($tempoptions["headers"]["Referer"]) ? $tempoptions["headers"]["Referer"] : $this->data["referer"]);
+			if (isset($tempoptions["headers"]["Referer"]))  $this->data["referer"] = $tempoptions["headers"]["Referer"];
 
 			// If a referrer is specified, use it to generate an absolute URL.
-			if ($referer != "")  $url = ConvertRelativeToAbsoluteURL($referer, $url);
+			if ($this->data["referer"] != "")  $url = ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
 
 			$urlinfo = ExtractURL($url);
 
@@ -93,7 +93,7 @@
 					if ($fileext == "css")  $headers["Accept"] = "text/css";
 					else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg")  $headers["Accept"] = "image/png, image/svg+xml, image/*;q=0.8, */*;q=0.5";
 					else if ($fileext == "js")  $headers["Accept"] = "application/javascript, */*;q=0.8";
-					else if ($referer != "" || $fileext == "" || $fileext == "html" || $fileext == "xhtml" || $fileext == "xml")  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
+					else if ($this->data["referer"] != "" || $fileext == "" || $fileext == "html" || $fileext == "xhtml" || $fileext == "xml")  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
 					else  $headers["Accept"] = "*/*";
 
 					$headers["Accept-Language"] = "en-US";
@@ -129,7 +129,7 @@
 					$headers["User-Agent"] = GetWebUserAgent($profile == "safari" || $profile == "chrome" ? $profile : $this->data["useragent"]);
 				}
 
-				if ($referer != "")  $headers["Referer"] = $referer;
+				if ($this->data["referer"] != "")  $headers["Referer"] = $this->data["referer"];
 
 				// Generate the final headers array.
 				$headers = array_merge($headers, $httpopts["headers"], $tempoptions["headers"]);
@@ -215,11 +215,11 @@
 					$url = $result["headers"]["Location"][0];
 
 					// Generate an absolute URL.
-					$url = ConvertRelativeToAbsoluteURL($referer, $url);
+					if ($this->data["referer"] != "")  $url = ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
 
 					$urlinfo2 = ExtractURL($url);
 
-					if (!isset($this->data["allowedredirprotocols"][$urlinfo2["scheme"]]) && !$this->data["allowedredirprotocols"][$urlinfo2["scheme"]])
+					if (!isset($this->data["allowedredirprotocols"][$urlinfo2["scheme"]]) || !$this->data["allowedredirprotocols"][$urlinfo2["scheme"]])
 					{
 						return array("success" => false, "error" => HTTPTranslate("Protocol '%s' is not allowed.  Server attempted to redirect to '%s'.", $urlinfo2["scheme"], $url), "info" => $result, "errorcode" => "allowed_redir_protocols");
 					}

@@ -29,7 +29,7 @@
 		$pos = strpos($url, "?");
 		if ($pos !== false)
 		{
-			$result["query"] = substr($url, $pos + 1);
+			$result["query"] = str_replace(" ", "+", substr($url, $pos + 1));
 			$url = substr($url, 0, $pos);
 			$vars = explode("&", $result["query"]);
 			foreach ($vars as $var)
