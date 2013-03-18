@@ -499,13 +499,15 @@
 
 					// Retrieve content.
 					$datasize = 0;
-					while ($datasize < $size && ($data2 = fread($fp, ($size > 65536 ? 65536 : $size))) !== false)
+					$size2 = $size;
+					while ($datasize < $size && ($data2 = fread($fp, ($size2 > 65536 ? 65536 : $size2))) !== false)
 					{
 						if ($timeout !== false && HTTPGetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 						$tempsize = strlen($data2);
 						$datasize += $tempsize;
 						$rawsize += $tempsize;
+						$size2 -= $tempsize;
 						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
 						else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
