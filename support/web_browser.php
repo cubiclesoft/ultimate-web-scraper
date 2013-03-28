@@ -181,6 +181,7 @@
 				$cookies2 = array();
 				foreach ($cookies as $name => $value)  $cookies2[] = rawurlencode($name) . "=" . rawurlencode($value);
 				$headers["Cookie"] = implode("; ", $cookies2);
+				if ($headers["Cookie"] == "")  unset($headers["Cookie"]);
 
 				// Generate the final options array.
 				$options = array_merge($httpopts, $tempoptions);

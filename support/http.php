@@ -496,18 +496,27 @@
 					$pos = strpos($line, ";");
 					if ($pos === false)  $pos = strlen($line);
 					$size = hexdec(substr($line, 0, $pos));
+					if ($size < 0)  $size = 0;
 
 					// Retrieve content.
-					$datasize = 0;
-					$size2 = $size;
-					while ($datasize < $size && ($data2 = fread($fp, ($size2 > 65536 ? 65536 : $size2))) !== false)
+					$size2 = min(strlen($data), $size);
+					if ($size2 > 0)
+					{
+						$data2 = substr($data, 0, $size2);
+						$data = substr($data, $size2);
+						$size -= $size2;
+
+						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
+						else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+					}
+					while ($size > 0 && ($data2 = fread($fp, ($size > 65536 ? 65536 : $size))) !== false)
 					{
 						if ($timeout !== false && HTTPGetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 						$tempsize = strlen($data2);
-						$datasize += $tempsize;
 						$rawsize += $tempsize;
-						$size2 -= $tempsize;
+						$size -= $tempsize;
+
 						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
 						else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
