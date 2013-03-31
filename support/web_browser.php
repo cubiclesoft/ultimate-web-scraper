@@ -198,6 +198,7 @@
 				$totalrawsendsize += $result["rawsendsize"];
 				$result["totalrawsendsize"] = $totalrawsendsize;
 				unset($result["options"]["files"]);
+				unset($result["options"]["body"]);
 				if (!$result["success"])  return array("success" => false, "error" => HTTPTranslate("Unable to retrieve content.  %s", $result["error"]), "info" => $result, "errorcode" => "retrievewebpage");
 
 				// Set up structures for another round.

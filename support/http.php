@@ -725,8 +725,8 @@
 		$ver = explode(".", $options["httpver"]);
 		if ((int)$ver[0] > 1 || ((int)$ver[0] == 1 && (int)$ver[1] >= 1))
 		{
-			if (isset($options["headers"]["Host"]))  $data .= "Host: " . $options["headers"]["Host"] . "\r\n";
-			else  $data .= "Host: " . $host . ($defaultport ? "" : ":" . $port) . "\r\n";
+			if (!isset($options["headers"]["Host"]))  $options["headers"]["Host"] = $host . ($defaultport ? "" : ":" . $port);
+			$data .= "Host: " . $options["headers"]["Host"] . "\r\n";
 		}
 
 		$data .= "Connection: close\r\n";
@@ -738,7 +738,6 @@
 				if ($name != "Content-Type" && $name != "Content-Length" && $name != "Connection" && $name != "Host")  $data .= $name . ": " . $val . "\r\n";
 			}
 		}
-		unset($options["headers"]);
 
 		// Process the body.
 		$body = "";
@@ -746,6 +745,8 @@
 		if (isset($options["write_body_callback"]))  $options["write_body_callback"]($body, $bodysize, $options["write_body_callback_opts"]);
 		else if (isset($options["body"]))
 		{
+			if (isset($options["headers"]["Content-Type"]))  $data .= "Content-Type: " . $options["headers"]["Content-Type"] . "\r\n";
+
 			$body = $options["body"];
 			$bodysize = strlen($body);
 			unset($options["body"]);
