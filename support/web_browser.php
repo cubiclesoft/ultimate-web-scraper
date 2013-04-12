@@ -197,7 +197,7 @@
 				$result["firstreqts"] = $startts;
 				$result["numredirects"] = $numredirects;
 				$result["redirectts"] = $redirectts;
-				$totalrawsendsize += $result["rawsendsize"];
+				if (isset($result["rawsendsize"]))  $totalrawsendsize += $result["rawsendsize"];
 				$result["totalrawsendsize"] = $totalrawsendsize;
 				unset($result["options"]["files"]);
 				unset($result["options"]["body"]);
