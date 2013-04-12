@@ -1,16 +1,17 @@
 <?php
 	// CubicleSoft PHP web browser state emulation class.
-	// (C) 2012 CubicleSoft.  All Rights Reserved.
+	// (C) 2013 CubicleSoft.  All Rights Reserved.
 
 	// Requires the CubicleSoft PHP HTTP functions for HTTP/HTTPS.
 	class WebBrowser
 	{
-		private $data;
+		private $data, $html;
 
 		public function __construct($prevstate = array())
 		{
 			$this->ResetState();
 			$this->SetState($prevstate);
+			$this->html = false;
 		}
 
 		public function ResetState()
@@ -24,6 +25,7 @@
 				"useragent" => "firefox",
 				"followlocation" => true,
 				"maxfollow" => 20,
+				"extractforms" => false,
 				"httpopts" => array(),
 			);
 		}
@@ -303,6 +305,272 @@
 
 			$result["numredirects"] = $numredirects;
 			$result["redirectts"] = $redirectts;
+
+			// Extract the forms from the page in a parsed format.
+			// Call WebBrowser::GenerateFormRequest() to prepare an actual request for Process().
+			if ($this->data["extractforms"])  $result["forms"] = $this->ExtractForms($result["url"], $result["body"]);
+
+			return $result;
+		}
+
+		public function ExtractForms($baseurl, $data)
+		{
+			$result = array();
+
+			if ($this->html === false)  $this->html = new simple_html_dom();
+			$this->html->load($data);
+			$html5rows = $this->html->find("input[form],textarea[form],select[form],button[form],datalist[id]");
+			$rows = $this->html->find("form");
+			foreach ($rows as $row)
+			{
+				$info = array();
+				if (isset($row->id))  $info["id"] = trim($row->id);
+				if (isset($row->name))  $info["name"] = (string)$row->name;
+				$info["action"] = (isset($row->action) ? ConvertRelativeToAbsoluteURL($baseurl, (string)$row->action) : $baseurl);
+				$info["method"] = (isset($row->method) && strtolower(trim($row->method)) == "post" ? "post" : "get");
+				if ($info["method"] == "post")  $info["enctype"] = (isset($row->enctype) ? strtolower($row->enctype) : "application/x-www-form-urlencoded");
+				if (isset($row->{"accept-charset"}))  $info["accept-charset"] = (string)$row->{"accept-charset"};
+
+				$fields = array();
+				$rows2 = $row->find("input,textarea,select,button");
+				foreach ($rows2 as $row2)
+				{
+					if (!isset($row2->form))  $this->ExtractFieldFromDOM($fields, $row2);
+				}
+
+				// Handle HTML5.
+				if (isset($info["id"]) && $info["id"] != "")
+				{
+					foreach ($html5rows as $row2)
+					{
+						if (strpos(" " . $info["id"] . " ", " " . $row2->form . " ") !== false)  $this->ExtractFieldFromDOM($fields, $row2);
+					}
+				}
+
+				$result[] = array(
+					"info" => $info,
+					"fields" => $fields
+				);
+			}
+
+			return $result;
+		}
+
+		private function ExtractFieldFromDOM(&$fields, $row)
+		{
+			if (isset($row->name) && is_string($row->name))
+			{
+				switch ($row->tag)
+				{
+					case "input":
+					{
+						$field = array(
+							"id" => (isset($row->id) ? (string)$row->id : false),
+							"type" => "input." . (isset($row->type) ? strtolower($row->type) : "text"),
+							"name" => $row->name,
+							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
+						);
+						if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $field["checked"] = (isset($row->checked));
+
+						$fields[] = $field;
+
+						break;
+					}
+					case "textarea":
+					{
+						$fields[] = array(
+							"id" => (isset($row->id) ? (string)$row->id : false),
+							"type" => "textarea",
+							"name" => $row->name,
+							"value" => html_entity_decode($row->innertext, ENT_COMPAT, "UTF-8")
+						);
+
+						break;
+					}
+					case "select":
+					{
+						if (isset($row->multiple))
+						{
+							// Change the type into multiple checkboxes.
+							$rows = $row->find("option");
+							foreach ($rows as $row2)
+							{
+								$fields[] = array(
+									"id" => (isset($row->id) ? (string)$row->id : false),
+									"type" => "input.checkbox",
+									"name" => $row->name,
+									"value" => (isset($row2->value) ? html_entity_decode($row2->value, ENT_COMPAT, "UTF-8") : ""),
+									"display" => (string)$row2->innertext
+								);
+							}
+						}
+						else
+						{
+							$val = false;
+							$options = array();
+							$rows = $row->find("option");
+							foreach ($rows as $row2)
+							{
+								$options[$row2->value] = (string)$row2->innertext;
+
+								if ($val === false && isset($row2->selected))  $val = html_entity_decode($row2->value, ENT_COMPAT, "UTF-8");
+							}
+							if ($val === false && count($options))  $val = reset(array_keys($options));
+							if ($val === false)  $val = "";
+
+							$fields[] = array(
+								"id" => (isset($row->id) ? (string)$row->id : false),
+								"type" => "select",
+								"name" => $row->name,
+								"value" => $val,
+								"options" => $options
+							);
+						}
+
+						break;
+					}
+					case "button":
+					{
+						$fields[] = array(
+							"id" => (isset($row->id) ? (string)$row->id : false),
+							"type" => "button." . (isset($row->type) ? strtolower($row->type) : "submit"),
+							"name" => $row->name,
+							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
+						);
+
+						break;
+					}
+				}
+			}
+		}
+
+		public static function FindFormFields(&$form, $name = false, $value = false, $type = false)
+		{
+			if (!isset($form["fields"]))  return false;
+
+			$fields = array();
+			foreach ($form["fields"] as $num => $field)
+			{
+				if (($type === false || $field["type"] === $type) && ($name === false || $field["name"] === $name) && ($value === false || $field["value"] === $value))
+				{
+					$fields[] = $field;
+				}
+			}
+
+			return $fields;
+		}
+
+		public static function GetFormValue(&$form, $name, $checkval = false, $type = false)
+		{
+			if (!isset($form["fields"]))  return false;
+
+			$val = false;
+			foreach ($form["fields"] as $field)
+			{
+				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
+				{
+					if (is_string($checkval))
+					{
+						if ($checkval === $field["value"])
+						{
+							if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $val = $field["checked"];
+							else  $val = $field["value"];
+						}
+					}
+					else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
+					{
+						$val = $field["value"];
+					}
+				}
+			}
+
+			return $val;
+		}
+
+		public static function SetFormValue(&$form, $name, $value, $checked = false, $type = false)
+		{
+			if (!isset($form["fields"]))  return false;
+
+			$result = false;
+			foreach ($form["fields"] as $num => $field)
+			{
+				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
+				{
+					if ($field["type"] == "input.radio")
+					{
+						if ($field["value"] === $value)  $form["fields"][$num]["checked"] = $checked;
+						else  $field["checked"] = false;
+					}
+					else if ($field["type"] == "input.checkbox")
+					{
+						if ($field["value"] === $value)  $form["fields"][$num]["checked"] = $checked;
+					}
+					else if ($field["type"] != "select" || !isset($field["options"]) || isset($field["options"][$value]))
+					{
+						$form["fields"][$num]["value"] = $value;
+					}
+				}
+			}
+
+			return $result;
+		}
+
+		public static function GenerateFormRequest(&$form, $submitname = false, $submitvalue = false)
+		{
+			if (!isset($form["info"]) || !isset($form["fields"]))  return false;
+
+			$method = $form["info"]["method"];
+			$fields = array();
+			$files = array();
+			foreach ($form["fields"] as $field)
+			{
+				if ($field["type"] == "input.file")
+				{
+					if (is_array($field["value"]))
+					{
+						$field["value"]["name"] = $field["name"];
+						$files[] = $field["value"];
+						$method = "post";
+					}
+				}
+				else if ($field["type"] == "input.reset")
+				{
+				}
+				else if ($field["type"] == "input.submit")
+				{
+					if (($submitname === false || $field["name"] === $submitname) && ($submitvalue === false || $field["value"] === $submitvalue))
+					{
+						if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
+						$fields[$field["name"]] = $field["value"];
+					}
+				}
+				else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
+				{
+					if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
+					$fields[$field["name"]] = $field["value"];
+				}
+			}
+
+			if ($method == "get")
+			{
+				$url = ExtractURL($form["info"]["action"]);
+				unset($url["query"]);
+				$url["queryvars"] = $fields;
+				$result = array(
+					"url" => CondenseURL($url),
+					"options" => array()
+				);
+			}
+			else
+			{
+				$result = array(
+					"url" => $form["info"]["action"],
+					"options" => array(
+						"postvars" => $fields,
+						"files" => $files
+					)
+				);
+			}
 
 			return $result;
 		}

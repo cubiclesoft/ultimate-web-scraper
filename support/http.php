@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP HTTP functions.
-	// (C) 2012 CubicleSoft.  All Rights Reserved.
+	// (C) 2013 CubicleSoft.  All Rights Reserved.
 
 	// RFC 3986 delimeter splitting implementation.
 	function ExtractURL($url)
@@ -18,6 +18,8 @@
 			"queryvars" => array(),
 			"fragment" => ""
 		);
+
+		$url = str_replace("&amp;", "&", $url);
 
 		$pos = strpos($url, "#");
 		if ($pos !== false)
