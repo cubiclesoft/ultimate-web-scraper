@@ -168,6 +168,7 @@
 			$data["query"] = array();
 			foreach ($data["queryvars"] as $key => $vals)
 			{
+				if (is_string($vals))  $vals = array($vals);
 				foreach ($vals as $val)  $data["query"][] = urlencode($key) . "=" . urlencode($val);
 			}
 			$data["query"] = implode("&", $data["query"]);

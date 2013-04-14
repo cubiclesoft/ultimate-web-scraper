@@ -533,21 +533,21 @@
 						$method = "post";
 					}
 				}
-				else if ($field["type"] == "input.reset")
+				else if ($field["type"] == "input.reset" || $field["type"] == "button.reset")
 				{
 				}
-				else if ($field["type"] == "input.submit")
+				else if ($field["type"] == "input.submit" || $field["type"] == "button.submit")
 				{
 					if (($submitname === false || $field["name"] === $submitname) && ($submitvalue === false || $field["value"] === $submitvalue))
 					{
 						if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
-						$fields[$field["name"]] = $field["value"];
+						$fields[$field["name"]][] = $field["value"];
 					}
 				}
 				else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
 				{
 					if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
-					$fields[$field["name"]] = $field["value"];
+					$fields[$field["name"]][] = $field["value"];
 				}
 			}
 
