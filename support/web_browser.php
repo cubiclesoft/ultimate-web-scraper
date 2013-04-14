@@ -498,16 +498,18 @@
 				{
 					if ($field["type"] == "input.radio")
 					{
-						if ($field["value"] === $value)  $form["fields"][$num]["checked"] = $checked;
-						else  $field["checked"] = false;
+						$form["fields"][$num]["checked"] = ($field["value"] === $value ? $checked : false);
+						$result = true;
 					}
 					else if ($field["type"] == "input.checkbox")
 					{
 						if ($field["value"] === $value)  $form["fields"][$num]["checked"] = $checked;
+						$result = true;
 					}
 					else if ($field["type"] != "select" || !isset($field["options"]) || isset($field["options"][$value]))
 					{
 						$form["fields"][$num]["value"] = $value;
+						$result = true;
 					}
 				}
 			}
