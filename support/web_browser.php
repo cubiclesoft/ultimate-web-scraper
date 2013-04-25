@@ -487,7 +487,7 @@
 			return $val;
 		}
 
-		public static function SetFormValue(&$form, $name, $value, $checked = false, $type = false)
+		public static function SetFormValue(&$form, $name, $value, $checked = false, $type = false, $create = false)
 		{
 			if (!isset($form["fields"]))  return false;
 
@@ -512,6 +512,18 @@
 						$result = true;
 					}
 				}
+			}
+
+			// Add the field if it doesn't exist.
+			if (!$result && $create)
+			{
+				$form["fields"][] = array(
+					"id" => false,
+					"type" => ($type !== false ? $type : "input.text"),
+					"name" => $name,
+					"value" => $value,
+					"checked" => $checked
+				);
 			}
 
 			return $result;
