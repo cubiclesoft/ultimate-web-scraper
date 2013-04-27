@@ -347,10 +347,10 @@
 					}
 				}
 
-				$result[] = array(
-					"info" => $info,
-					"fields" => $fields
-				);
+				$form = new WebBrowserForm();
+				$form->info = $info;
+				$form->fields = $fields;
+				$result[] = $form;
 			}
 
 			return $result;
@@ -444,151 +444,6 @@
 			}
 		}
 
-		public static function FindFormFields(&$form, $name = false, $value = false, $type = false)
-		{
-			if (!isset($form["fields"]))  return false;
-
-			$fields = array();
-			foreach ($form["fields"] as $num => $field)
-			{
-				if (($type === false || $field["type"] === $type) && ($name === false || $field["name"] === $name) && ($value === false || $field["value"] === $value))
-				{
-					$fields[] = $field;
-				}
-			}
-
-			return $fields;
-		}
-
-		public static function GetFormValue(&$form, $name, $checkval = false, $type = false)
-		{
-			if (!isset($form["fields"]))  return false;
-
-			$val = false;
-			foreach ($form["fields"] as $field)
-			{
-				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
-				{
-					if (is_string($checkval))
-					{
-						if ($checkval === $field["value"])
-						{
-							if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $val = $field["checked"];
-							else  $val = $field["value"];
-						}
-					}
-					else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
-					{
-						$val = $field["value"];
-					}
-				}
-			}
-
-			return $val;
-		}
-
-		public static function SetFormValue(&$form, $name, $value, $checked = false, $type = false, $create = false)
-		{
-			if (!isset($form["fields"]))  return false;
-
-			$result = false;
-			foreach ($form["fields"] as $num => $field)
-			{
-				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
-				{
-					if ($field["type"] == "input.radio")
-					{
-						$form["fields"][$num]["checked"] = ($field["value"] === $value ? $checked : false);
-						$result = true;
-					}
-					else if ($field["type"] == "input.checkbox")
-					{
-						if ($field["value"] === $value)  $form["fields"][$num]["checked"] = $checked;
-						$result = true;
-					}
-					else if ($field["type"] != "select" || !isset($field["options"]) || isset($field["options"][$value]))
-					{
-						$form["fields"][$num]["value"] = $value;
-						$result = true;
-					}
-				}
-			}
-
-			// Add the field if it doesn't exist.
-			if (!$result && $create)
-			{
-				$form["fields"][] = array(
-					"id" => false,
-					"type" => ($type !== false ? $type : "input.text"),
-					"name" => $name,
-					"value" => $value,
-					"checked" => $checked
-				);
-			}
-
-			return $result;
-		}
-
-		public static function GenerateFormRequest(&$form, $submitname = false, $submitvalue = false)
-		{
-			if (!isset($form["info"]) || !isset($form["fields"]))  return false;
-
-			$method = $form["info"]["method"];
-			$fields = array();
-			$files = array();
-			foreach ($form["fields"] as $field)
-			{
-				if ($field["type"] == "input.file")
-				{
-					if (is_array($field["value"]))
-					{
-						$field["value"]["name"] = $field["name"];
-						$files[] = $field["value"];
-						$method = "post";
-					}
-				}
-				else if ($field["type"] == "input.reset" || $field["type"] == "button.reset")
-				{
-				}
-				else if ($field["type"] == "input.submit" || $field["type"] == "button.submit")
-				{
-					if (($submitname === false || $field["name"] === $submitname) && ($submitvalue === false || $field["value"] === $submitvalue))
-					{
-						if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
-						$fields[$field["name"]][] = $field["value"];
-					}
-				}
-				else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
-				{
-					if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
-					$fields[$field["name"]][] = $field["value"];
-				}
-			}
-
-			if ($method == "get")
-			{
-				$url = ExtractURL($form["info"]["action"]);
-				unset($url["query"]);
-				$url["queryvars"] = $fields;
-				$result = array(
-					"url" => CondenseURL($url),
-					"options" => array()
-				);
-			}
-			else
-			{
-				$result = array(
-					"url" => $form["info"]["action"],
-					"options" => array(
-						"postvars" => $fields,
-						"files" => $files
-					)
-				);
-			}
-
-			return $result;
-		}
-
 		public function DeleteSessionCookies()
 		{
 			foreach ($this->data["cookies"] as $domain => $paths)
@@ -641,6 +496,154 @@
 			$sec = (int)substr($ts, 17, 2);
 
 			return gmmktime($hour, $min, $sec, $month, $day, $year);
+		}
+	}
+
+	class WebBrowserForm
+	{
+		public $info, $fields;
+
+		public function __construct()
+		{
+			$this->info = array();
+			$this->fields = array();
+		}
+
+		public function FindFormFields($name = false, $value = false, $type = false)
+		{
+			$fields = array();
+			foreach ($this->fields as $num => $field)
+			{
+				if (($type === false || $field["type"] === $type) && ($name === false || $field["name"] === $name) && ($value === false || $field["value"] === $value))
+				{
+					$fields[] = $field;
+				}
+			}
+
+			return $fields;
+		}
+
+		public function GetFormValue($name, $checkval = false, $type = false)
+		{
+			$val = false;
+			foreach ($this->fields as $field)
+			{
+				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
+				{
+					if (is_string($checkval))
+					{
+						if ($checkval === $field["value"])
+						{
+							if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $val = $field["checked"];
+							else  $val = $field["value"];
+						}
+					}
+					else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
+					{
+						$val = $field["value"];
+					}
+				}
+			}
+
+			return $val;
+		}
+
+		public function SetFormValue($name, $value, $checked = false, $type = false, $create = false)
+		{
+			$result = false;
+			foreach ($this->fields as $num => $field)
+			{
+				if (($type === false || $field["type"] === $type) && $field["name"] === $name)
+				{
+					if ($field["type"] == "input.radio")
+					{
+						$this->fields[$num]["checked"] = ($field["value"] === $value ? $checked : false);
+						$result = true;
+					}
+					else if ($field["type"] == "input.checkbox")
+					{
+						if ($field["value"] === $value)  $this->fields[$num]["checked"] = $checked;
+						$result = true;
+					}
+					else if ($field["type"] != "select" || !isset($field["options"]) || isset($field["options"][$value]))
+					{
+						$this->fields[$num]["value"] = $value;
+						$result = true;
+					}
+				}
+			}
+
+			// Add the field if it doesn't exist.
+			if (!$result && $create)
+			{
+				$this->fields[] = array(
+					"id" => false,
+					"type" => ($type !== false ? $type : "input.text"),
+					"name" => $name,
+					"value" => $value,
+					"checked" => $checked
+				);
+			}
+
+			return $result;
+		}
+
+		public function GenerateFormRequest($submitname = false, $submitvalue = false)
+		{
+			$method = $this->info["method"];
+			$fields = array();
+			$files = array();
+			foreach ($this->fields as $field)
+			{
+				if ($field["type"] == "input.file")
+				{
+					if (is_array($field["value"]))
+					{
+						$field["value"]["name"] = $field["name"];
+						$files[] = $field["value"];
+						$method = "post";
+					}
+				}
+				else if ($field["type"] == "input.reset" || $field["type"] == "button.reset")
+				{
+				}
+				else if ($field["type"] == "input.submit" || $field["type"] == "button.submit")
+				{
+					if (($submitname === false || $field["name"] === $submitname) && ($submitvalue === false || $field["value"] === $submitvalue))
+					{
+						if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
+						$fields[$field["name"]][] = $field["value"];
+					}
+				}
+				else if (($field["type"] != "input.radio" && $field["type"] != "input.checkbox") || $field["checked"])
+				{
+					if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
+					$fields[$field["name"]][] = $field["value"];
+				}
+			}
+
+			if ($method == "get")
+			{
+				$url = ExtractURL($this->info["action"]);
+				unset($url["query"]);
+				$url["queryvars"] = $fields;
+				$result = array(
+					"url" => CondenseURL($url),
+					"options" => array()
+				);
+			}
+			else
+			{
+				$result = array(
+					"url" => $this->info["action"],
+					"options" => array(
+						"postvars" => $fields,
+						"files" => $files
+					)
+				);
+			}
+
+			return $result;
 		}
 	}
 ?>
