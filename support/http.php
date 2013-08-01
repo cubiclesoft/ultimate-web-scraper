@@ -395,6 +395,17 @@
 		}
 	}
 
+	function HTTPGetDecodedBody(&$autodecode_ds, $body)
+	{
+		if ($autodecode_ds !== false)
+		{
+			$autodecode_ds->Write($body);
+			$body = $autodecode_ds->Read();
+		}
+
+		return $body;
+	}
+
 	function HTTPGetResponse($fp, $debug, $options, $startts, $timeout)
 	{
 		$recvstart = microtime(true);
@@ -403,6 +414,8 @@
 
 		do
 		{
+			$autodecode = (!isset($options["auto_decode"]) || $options["auto_decode"]);
+
 			// Process the response line.
 			while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 			{
@@ -472,6 +485,18 @@
 				if (!$options["read_headers_callback"]($response, $headers, $options["read_headers_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
 			}
 
+			// Determine if decoding the content is possible and necessary.
+			if ($autodecode && !isset($headers["Content-Encoding"]) || (strtolower($headers["Content-Encoding"][0]) != "gzip" && strtolower($headers["Content-Encoding"][0]) != "deflate"))  $autodecode = false;
+			if (!$autodecode)  $autodecode_ds = false;
+			else
+			{
+				require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
+
+				// Since servers and browsers do everything wrong, ignore the encoding claim and attempt to auto-detect the encoding.
+				$autodecode_ds = new DeflateStream();
+				$autodecode_ds->Init("rb", -1, array("type" => "auto"));
+			}
+
 			// Process the body.
 			$body = "";
 			if (isset($headers["Transfer-Encoding"]) && strtolower($headers["Transfer-Encoding"][0]) == "chunked")
@@ -510,8 +535,8 @@
 						$data = substr($data, $size3);
 						$size2 -= $size3;
 
-						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
-						else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= HTTPGetDecodedBody($autodecode_ds, $data2);
+						else if (!$options["read_body_callback"]($response, HTTPGetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 					}
 					while ($size2 > 0 && ($data2 = fread($fp, ($size2 > 65536 ? 65536 : $size2))) !== false)
 					{
@@ -521,8 +546,8 @@
 						$rawsize += $tempsize;
 						$size2 -= $tempsize;
 
-						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
-						else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= HTTPGetDecodedBody($autodecode_ds, $data2);
+						else if (!$options["read_body_callback"]($response, HTTPGetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
 						if (isset($options["recvratelimit"]))  HTTPRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
 						if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
@@ -602,8 +627,8 @@
 					$tempsize = strlen($data2);
 					$datasize += $tempsize;
 					$rawsize += $tempsize;
-					if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
-					else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+					if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= HTTPGetDecodedBody($autodecode_ds, $data2);
+					else if (!$options["read_body_callback"]($response, HTTPGetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
 					if (isset($options["recvratelimit"]))  HTTPRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
 					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
@@ -620,8 +645,8 @@
 
 					$tempsize = strlen($data2);
 					$rawsize += $tempsize;
-					if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
-					else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+					if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= HTTPGetDecodedBody($autodecode_ds, $data2);
+					else if (!$options["read_body_callback"]($response, HTTPGetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
 					if (isset($options["recvratelimit"]))  HTTPRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
 					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
@@ -629,6 +654,15 @@
 
 					if (feof($fp))  break;
 				}
+			}
+
+			if ($autodecode_ds !== false)
+			{
+				$autodecode_ds->Finalize();
+				$data2 = $autodecode_ds->Read();
+
+				if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
+				else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 			}
 		} while ($response["code"] == 100);
 
@@ -663,7 +697,6 @@
 		// Cleanup input headers.
 		if (!isset($options["headers"]))  $options["headers"] = array();
 		$options["headers"] = HTTPNormalizeHeaders($options["headers"]);
-		unset($options["headers"]["Accept-Encoding"]);
 
 		// Process the proxy URL (if specified).
 		$useproxy = (isset($options["proxyurl"]) && trim($options["proxyurl"]) != "");
