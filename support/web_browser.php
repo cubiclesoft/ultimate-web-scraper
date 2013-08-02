@@ -415,7 +415,11 @@
 
 								if ($val === false && isset($row2->selected))  $val = html_entity_decode($row2->value, ENT_COMPAT, "UTF-8");
 							}
-							if ($val === false && count($options))  $val = reset(array_keys($options));
+							if ($val === false && count($options))
+							{
+								$val = array_keys($options);
+								$val = $val[0];
+							}
 							if ($val === false)  $val = "";
 
 							$fields[] = array(
