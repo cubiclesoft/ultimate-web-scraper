@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP web browser state emulation class.
-	// (C) 2013 CubicleSoft.  All Rights Reserved.
+	// (C) 2014 CubicleSoft.  All Rights Reserved.
 
 	// Requires the CubicleSoft PHP HTTP functions for HTTP/HTTPS.
 	class WebBrowser
@@ -49,7 +49,7 @@
 			else  $timeout = false;
 
 			if (!isset($this->data["httpopts"]["headers"]))  $this->data["httpopts"]["headers"] = array();
-			$this->data["httpopts"]["headers"] = HTTPNormalizeHeaders($this->data["httpopts"]["headers"]);
+			$this->data["httpopts"]["headers"] = HTTP::NormalizeHeaders($this->data["httpopts"]["headers"]);
 			unset($this->data["httpopts"]["method"]);
 			unset($this->data["httpopts"]["write_body_callback"]);
 			unset($this->data["httpopts"]["body"]);
@@ -62,22 +62,22 @@
 			$totalrawsendsize = 0;
 
 			if (!isset($tempoptions["headers"]))  $tempoptions["headers"] = array();
-			$tempoptions["headers"] = HTTPNormalizeHeaders($tempoptions["headers"]);
+			$tempoptions["headers"] = HTTP::NormalizeHeaders($tempoptions["headers"]);
 			if (isset($tempoptions["headers"]["Referer"]))  $this->data["referer"] = $tempoptions["headers"]["Referer"];
 
 			// If a referrer is specified, use it to generate an absolute URL.
-			if ($this->data["referer"] != "")  $url = ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
+			if ($this->data["referer"] != "")  $url = HTTP::ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
 
-			$urlinfo = ExtractURL($url);
+			$urlinfo = HTTP::ExtractURL($url);
 
 			do
 			{
 				if (!isset($this->data["allowedprotocols"][$urlinfo["scheme"]]) || !$this->data["allowedprotocols"][$urlinfo["scheme"]])
 				{
-					return array("success" => false, "error" => HTTPTranslate("Protocol '%s' is not allowed in '%s'.", $urlinfo["scheme"], $url), "errorcode" => "allowed_protocols");
+					return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed in '%s'.", $urlinfo["scheme"], $url), "errorcode" => "allowed_protocols");
 				}
 
-				$filename = HTTPExtractFilename($urlinfo["path"]);
+				$filename = HTTP::ExtractFilename($urlinfo["path"]);
 				$pos = strrpos($filename, ".");
 				$fileext = ($pos !== false ? strtolower(substr($filename, $pos + 1)) : "");
 
@@ -99,7 +99,7 @@
 					else  $headers["Accept"] = "*/*";
 
 					$headers["Accept-Language"] = "en-US";
-					$headers["User-Agent"] = GetWebUserAgent(substr($profile, 0, 2) == "ie" ? $profile : $this->data["useragent"]);
+					$headers["User-Agent"] = HTTP::GetUserAgent(substr($profile, 0, 2) == "ie" ? $profile : $this->data["useragent"]);
 				}
 				else if ($profile == "firefox" || ($profile == "auto" && $this->data["useragent"] == "firefox"))
 				{
@@ -110,7 +110,7 @@
 
 					$headers["Accept-Language"] = "en-us,en;q=0.5";
 					$headers["Cache-Control"] = "max-age=0";
-					$headers["User-Agent"] = GetWebUserAgent("firefox");
+					$headers["User-Agent"] = HTTP::GetUserAgent("firefox");
 				}
 				else if ($profile == "opera" || ($profile == "auto" && $this->data["useragent"] == "opera"))
 				{
@@ -118,7 +118,7 @@
 					$headers["Accept"] = "text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1";
 					$headers["Accept-Language"] = "en-US,en;q=0.9";
 					$headers["Cache-Control"] = "no-cache";
-					$headers["User-Agent"] = GetWebUserAgent("opera");
+					$headers["User-Agent"] = HTTP::GetUserAgent("opera");
 				}
 				else if ($profile == "safari" || $profile == "chrome" || ($profile == "auto" && ($this->data["useragent"] == "safari" || $this->data["useragent"] == "chrome")))
 				{
@@ -128,7 +128,7 @@
 
 					$headers["Accept-Charset"] = "ISO-8859-1,utf-8;q=0.7,*;q=0.3";
 					$headers["Accept-Language"] = "en-US,en;q=0.8";
-					$headers["User-Agent"] = GetWebUserAgent($profile == "safari" || $profile == "chrome" ? $profile : $this->data["useragent"]);
+					$headers["User-Agent"] = HTTP::GetUserAgent($profile == "safari" || $profile == "chrome" ? $profile : $this->data["useragent"]);
 				}
 
 				if ($this->data["referer"] != "")  $headers["Referer"] = $this->data["referer"];
@@ -188,10 +188,10 @@
 				// Generate the final options array.
 				$options = array_merge($httpopts, $tempoptions);
 				$options["headers"] = $headers;
-				if ($timeout !== false)  $options["timeout"] = HTTPGetTimeLeft($startts, $timeout);
+				if ($timeout !== false)  $options["timeout"] = HTTP::GetTimeLeft($startts, $timeout);
 
 				// Process the request.
-				$result = RetrieveWebpage($url, $options);
+				$result = HTTP::RetrieveWebpage($url, $options);
 				$result["url"] = $url;
 				$result["options"] = $options;
 				$result["firstreqts"] = $startts;
@@ -201,7 +201,7 @@
 				$result["totalrawsendsize"] = $totalrawsendsize;
 				unset($result["options"]["files"]);
 				unset($result["options"]["body"]);
-				if (!$result["success"])  return array("success" => false, "error" => HTTPTranslate("Unable to retrieve content.  %s", $result["error"]), "info" => $result, "errorcode" => "retrievewebpage");
+				if (!$result["success"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Unable to retrieve content.  %s", $result["error"]), "info" => $result, "errorcode" => "retrievewebpage");
 
 				// Set up structures for another round.
 				if ($this->data["autoreferer"])  $this->data["referer"] = $url;
@@ -219,13 +219,13 @@
 					$url = $result["headers"]["Location"][0];
 
 					// Generate an absolute URL.
-					if ($this->data["referer"] != "")  $url = ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
+					if ($this->data["referer"] != "")  $url = HTTP::ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
 
-					$urlinfo2 = ExtractURL($url);
+					$urlinfo2 = HTTP::ExtractURL($url);
 
 					if (!isset($this->data["allowedredirprotocols"][$urlinfo2["scheme"]]) || !$this->data["allowedredirprotocols"][$urlinfo2["scheme"]])
 					{
-						return array("success" => false, "error" => HTTPTranslate("Protocol '%s' is not allowed.  Server attempted to redirect to '%s'.", $urlinfo2["scheme"], $url), "info" => $result, "errorcode" => "allowed_redir_protocols");
+						return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed.  Server attempted to redirect to '%s'.", $urlinfo2["scheme"], $url), "info" => $result, "errorcode" => "allowed_redir_protocols");
 					}
 
 					if ($urlinfo2["host"] != $urlinfo["host"])
@@ -275,7 +275,7 @@
 
 							if (isset($cookie["expires"]))
 							{
-								$ts = GetHTTPDateTimestamp($cookie["expires"]);
+								$ts = HTTP::GetDateTimestamp($cookie["expires"]);
 								$cookie["expires_ts"] = gmdate("Y-m-d H:i:s", ($ts === false ? time() - 24 * 60 * 60 : $ts));
 							}
 							else if (isset($cookie["max-age"]))
@@ -326,7 +326,7 @@
 				$info = array();
 				if (isset($row->id))  $info["id"] = trim($row->id);
 				if (isset($row->name))  $info["name"] = (string)$row->name;
-				$info["action"] = (isset($row->action) ? ConvertRelativeToAbsoluteURL($baseurl, (string)$row->action) : $baseurl);
+				$info["action"] = (isset($row->action) ? HTTP::ConvertRelativeToAbsoluteURL($baseurl, (string)$row->action) : $baseurl);
 				$info["method"] = (isset($row->method) && strtolower(trim($row->method)) == "post" ? "post" : "get");
 				if ($info["method"] == "post")  $info["enctype"] = (isset($row->enctype) ? strtolower($row->enctype) : "application/x-www-form-urlencoded");
 				if (isset($row->{"accept-charset"}))  $info["accept-charset"] = (string)$row->{"accept-charset"};
@@ -628,11 +628,11 @@
 
 			if ($method == "get")
 			{
-				$url = ExtractURL($this->info["action"]);
+				$url = HTTP::ExtractURL($this->info["action"]);
 				unset($url["query"]);
 				$url["queryvars"] = $fields;
 				$result = array(
-					"url" => CondenseURL($url),
+					"url" => HTTP::CondenseURL($url),
 					"options" => array()
 				);
 			}
