@@ -303,12 +303,12 @@
 			return call_user_func_array((defined("CS_TRANSLATE_FUNC") && function_exists(CS_TRANSLATE_FUNC) ? CS_TRANSLATE_FUNC : "sprintf"), $args);
 		}
 
-		protected static function HeaderNameCleanup($name)
+		private static function HeaderNameCleanup($name)
 		{
 			return preg_replace('/\s+/', "-", ucwords(strtolower(trim(preg_replace('/[^A-Za-z0-9 ]/', " ", $name)))));
 		}
 
-		protected static function HeaderValueCleanup($value)
+		private static function HeaderValueCleanup($value)
 		{
 			return str_replace(array("\r", "\n"), array("", ""), $value);
 		}
@@ -325,7 +325,7 @@
 			return $result;
 		}
 
-		protected static function ProcessSSLOptions(&$options, $key, $host)
+		private static function ProcessSSLOptions(&$options, $key, $host)
 		{
 			if (isset($options[$key]["auto_cainfo"]))
 			{
@@ -335,6 +335,7 @@
 				if ($cainfo !== false && strlen($cainfo) > 0)  $options[$key]["cafile"] = $cainfo;
 				else if (file_exists(str_replace("\\", "/", dirname(__FILE__)) . "/cacert.pem"))  $options[$key]["cafile"] = str_replace("\\", "/", dirname(__FILE__)) . "/cacert.pem";
 			}
+
 			if (isset($options[$key]["auto_cn_match"]))
 			{
 				unset($options[$key]["auto_cn_match"]);
@@ -346,6 +347,7 @@
 					$options[$key]["CN_match"] = $info["host"];
 				}
 			}
+
 			if (isset($options[$key]["auto_sni"]))
 			{
 				unset($options[$key]["auto_sni"]);
@@ -385,7 +387,7 @@
 			return $limit - $difftime;
 		}
 
-		protected static function ProcessRateLimit($size, $start, $limit)
+		private static function ProcessRateLimit($size, $start, $limit)
 		{
 			$difftime = microtime(true) - $start;
 			if ($difftime > 0.0)
@@ -399,7 +401,7 @@
 			}
 		}
 
-		protected static function GetDecodedBody(&$autodecode_ds, $body)
+		private static function GetDecodedBody(&$autodecode_ds, $body)
 		{
 			if ($autodecode_ds !== false)
 			{
@@ -410,7 +412,7 @@
 			return $body;
 		}
 
-		protected static function GetResponse($fp, $debug, $options, $startts, $timeout)
+		private static function GetResponse($fp, $debug, $options, $startts, $timeout)
 		{
 			$recvstart = microtime(true);
 			$rawdata = $data = "";
