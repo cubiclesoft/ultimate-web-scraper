@@ -598,7 +598,7 @@
 				if ($proxyport < 1 || $proxyport > 65535)  $proxyport = false;
 				if (strpos($proxyurl, "://") === false)  $proxyurl = ($proxyport == 443 ? "https://" : "http://") . $proxyurl;
 
-				$proxyurl = ExtractURL($proxyurl);
+				$proxyurl = HTTP::ExtractURL($proxyurl);
 				if ($proxyport !== false)  $proxyurl["port"] = $proxyport;
 				if (isset($curl_init__map[$key]["options"][CURLOPT_PROXYUSERPWD]))
 				{
@@ -774,7 +774,7 @@
 
 				return false;
 			}
-			$url = ExtractURL($curl_init__map[$key]["options"][CURLOPT_URL]);
+			$url = HTTP::ExtractURL($curl_init__map[$key]["options"][CURLOPT_URL]);
 			if ($url["scheme"] == "")
 			{
 				$curl_init__map[$key]["errorno"] = CURLE_URL_MALFORMAT;
