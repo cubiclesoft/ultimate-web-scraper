@@ -303,7 +303,7 @@
 			return call_user_func_array((defined("CS_TRANSLATE_FUNC") && function_exists(CS_TRANSLATE_FUNC) ? CS_TRANSLATE_FUNC : "sprintf"), $args);
 		}
 
-		private static function HeaderNameCleanup($name)
+		public static function HeaderNameCleanup($name)
 		{
 			return preg_replace('/\s+/', "-", ucwords(strtolower(trim(preg_replace('/[^A-Za-z0-9 ]/', " ", $name)))));
 		}
