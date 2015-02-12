@@ -149,6 +149,7 @@
 					if ($pos !== false)  $host = substr($host, 0, $pos);
 				}
 				$dothost = $host;
+				$dothost = strtolower($dothost);
 				if (substr($dothost, 0, 1) != ".")  $dothost = "." . $dothost;
 
 				// Append cookies and delete old, invalid cookies.
@@ -160,7 +161,7 @@
 				$cookies = array();
 				foreach ($this->data["cookies"] as $domain => $paths)
 				{
-					if (substr($domain, -strlen($dothost)) == $dothost)
+					if (strlen($dothost) >= strlen($domain) && substr($dothost, -strlen($domain)) === $domain)
 					{
 						foreach ($paths as $path => $cookies2)
 						{
@@ -288,6 +289,7 @@
 							}
 
 							if (!isset($cookie["domain"]))  $cookie["domain"] = $dothost;
+							$cookie["domain"] = strtolower($cookie["domain"]);
 							if (substr($cookie["domain"], 0, 1) != ".")  $cookie["domain"] = "." . $cookie["domain"];
 							if (!isset($cookie["path"]))  $cookie["path"] = $cookiepath;
 							$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
@@ -308,18 +310,19 @@
 
 			// Extract the forms from the page in a parsed format.
 			// Call WebBrowser::GenerateFormRequest() to prepare an actual request for Process().
-			if ($this->data["extractforms"])  $result["forms"] = $this->ExtractForms($result["url"], $result["body"]);
+			if ($this->data["extractforms"])  $result["forms"] = $this->ExtractForms($result["url"], $result["body"], (isset($tempoptions["extractforms_hint"]) ? $tempoptions["extractforms_hint"] : false));
 
 			return $result;
 		}
 
-		public function ExtractForms($baseurl, $data)
+		public function ExtractForms($baseurl, $data, $hint = false)
 		{
 			$result = array();
 
+			$lasthint = "";
 			if ($this->html === false)  $this->html = new simple_html_dom();
 			$this->html->load($data);
-			$html5rows = $this->html->find("input[form],textarea[form],select[form],button[form],datalist[id]");
+			$html5rows = $this->html->find("input[form],textarea[form],select[form],button[form],datalist[id]" . ($hint !== false ? "," . $hint : ""));
 			$rows = $this->html->find("form");
 			foreach ($rows as $row)
 			{
@@ -332,10 +335,10 @@
 				if (isset($row->{"accept-charset"}))  $info["accept-charset"] = (string)$row->{"accept-charset"};
 
 				$fields = array();
-				$rows2 = $row->find("input,textarea,select,button");
+				$rows2 = $row->find("input,textarea,select,button" . ($hint !== false ? "," . $hint : ""));
 				foreach ($rows2 as $row2)
 				{
-					if (!isset($row2->form))  $this->ExtractFieldFromDOM($fields, $row2);
+					if (!isset($row2->form))  $this->ExtractFieldFromDOM($fields, $row2, $lasthint);
 				}
 
 				// Handle HTML5.
@@ -343,7 +346,7 @@
 				{
 					foreach ($html5rows as $row2)
 					{
-						if (strpos(" " . $info["id"] . " ", " " . $row2->form . " ") !== false)  $this->ExtractFieldFromDOM($fields, $row2);
+						if (strpos(" " . $info["id"] . " ", " " . $row2->form . " ") !== false)  $this->ExtractFieldFromDOM($fields, $row2, $lasthint);
 					}
 				}
 
@@ -356,13 +359,13 @@
 			return $result;
 		}
 
-		private function ExtractFieldFromDOM(&$fields, $row)
+		private function ExtractFieldFromDOM(&$fields, $row, &$lasthint)
 		{
-			if (isset($row->name) && is_string($row->name))
+			switch ($row->tag)
 			{
-				switch ($row->tag)
+				case "input":
 				{
-					case "input":
+					if (isset($row->name) && is_string($row->name))
 					{
 						$field = array(
 							"id" => (isset($row->id) ? (string)$row->id : false),
@@ -371,23 +374,37 @@
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
 						if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $field["checked"] = (isset($row->checked));
+						if ($lasthint !== "")  $field["hint"] = $lasthint;
 
 						$fields[] = $field;
 
-						break;
+						$lasthint = "";
 					}
-					case "textarea":
+
+					break;
+				}
+				case "textarea":
+				{
+					if (isset($row->name) && is_string($row->name))
 					{
-						$fields[] = array(
+						$field = array(
 							"id" => (isset($row->id) ? (string)$row->id : false),
 							"type" => "textarea",
 							"name" => $row->name,
 							"value" => html_entity_decode($row->innertext, ENT_COMPAT, "UTF-8")
 						);
+						if ($lasthint !== "")  $field["hint"] = $lasthint;
 
-						break;
+						$fields[] = $field;
+
+						$lasthint = "";
 					}
-					case "select":
+
+					break;
+				}
+				case "select":
+				{
+					if (isset($row->name) && is_string($row->name))
 					{
 						if (isset($row->multiple))
 						{
@@ -395,13 +412,16 @@
 							$rows = $row->find("option");
 							foreach ($rows as $row2)
 							{
-								$fields[] = array(
+								$field = array(
 									"id" => (isset($row->id) ? (string)$row->id : false),
 									"type" => "input.checkbox",
 									"name" => $row->name,
 									"value" => (isset($row2->value) ? html_entity_decode($row2->value, ENT_COMPAT, "UTF-8") : ""),
 									"display" => (string)$row2->innertext
 								);
+								if ($lasthint !== "")  $field["hint"] = $lasthint;
+
+								$fields[] = $field;
 							}
 						}
 						else
@@ -422,28 +442,54 @@
 							}
 							if ($val === false)  $val = "";
 
-							$fields[] = array(
+							$field = array(
 								"id" => (isset($row->id) ? (string)$row->id : false),
 								"type" => "select",
 								"name" => $row->name,
 								"value" => $val,
 								"options" => $options
 							);
+							if ($lasthint !== "")  $field["hint"] = $lasthint;
+
+							$fields[] = $field;
 						}
 
-						break;
+						$lasthint = "";
 					}
-					case "button":
+
+					break;
+				}
+				case "button":
+				{
+					if (isset($row->name) && is_string($row->name))
 					{
-						$fields[] = array(
+						$field = array(
 							"id" => (isset($row->id) ? (string)$row->id : false),
 							"type" => "button." . (isset($row->type) ? strtolower($row->type) : "submit"),
 							"name" => $row->name,
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
+						if ($lasthint !== "")  $field["hint"] = $lasthint;
 
-						break;
+						$fields[] = $field;
+
+						$lasthint = "";
 					}
+
+					break;
+				}
+				case "datalist":
+				{
+					// Do nothing since browsers don't actually enforce this tag's values.
+
+					break;
+				}
+				default:
+				{
+					// Hint for the next element.
+					$lasthint = (string)$row->plaintext;
+
+					break;
 				}
 			}
 		}
@@ -525,6 +571,17 @@
 			}
 
 			return $fields;
+		}
+
+		public function GetHintMap()
+		{
+			$result = array();
+			foreach ($this->fields as $num => $field)
+			{
+				if (isset($field["hint"]))  $result[$field["hint"]] = $field["name"];
+			}
+
+			return $result;
 		}
 
 		public function GetFormValue($name, $checkval = false, $type = false)
