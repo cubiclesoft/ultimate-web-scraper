@@ -437,7 +437,7 @@
 					if ($prefix === "!" && $tagname === "doctype")  $tagname = "DOCTYPE";
 
 					// Let a callback handle any necessary changes.
-					if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, $result, $open, $prefix . $tagname, &$attrs, $options));
+					if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, &$result, $open, $prefix . $tagname, &$attrs, $options));
 					else  $funcresult = array();
 
 					if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
@@ -543,7 +543,7 @@
 			{
 				// Let a callback handle any necessary changes.
 				$attrs = array();
-				if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, $result, false, "/" . $stack[0]["tag_name"], &$attrs, $options));
+				if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, &$result, false, "/" . $stack[0]["tag_name"], &$attrs, $options));
 				else  $funcresult = array();
 
 				if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
