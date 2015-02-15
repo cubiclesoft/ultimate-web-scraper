@@ -320,8 +320,14 @@
 			$result = array();
 
 			$lasthint = "";
+			$hintmap = array();
 			if ($this->html === false)  $this->html = new simple_html_dom();
 			$this->html->load($data);
+			$rows = $this->html->find("label[for]");
+			foreach ($rows as $row)
+			{
+				$hintmap[trim($row->for)] = trim($row->plaintext);
+			}
 			$html5rows = $this->html->find("input[form],textarea[form],select[form],button[form],datalist[id]" . ($hint !== false ? "," . $hint : ""));
 			$rows = $this->html->find("form");
 			foreach ($rows as $row)
@@ -338,7 +344,12 @@
 				$rows2 = $row->find("input,textarea,select,button" . ($hint !== false ? "," . $hint : ""));
 				foreach ($rows2 as $row2)
 				{
-					if (!isset($row2->form))  $this->ExtractFieldFromDOM($fields, $row2, $lasthint);
+					if (!isset($row2->form))
+					{
+						if (isset($row2->id) && $row2->id != "" && isset($hintmap[trim($row2->id)]))  $lasthint = $hintmap[trim($row2->id)];
+
+						$this->ExtractFieldFromDOM($fields, $row2, $lasthint);
+					}
 				}
 
 				// Handle HTML5.
@@ -346,7 +357,12 @@
 				{
 					foreach ($html5rows as $row2)
 					{
-						if (strpos(" " . $info["id"] . " ", " " . $row2->form . " ") !== false)  $this->ExtractFieldFromDOM($fields, $row2, $lasthint);
+						if (strpos(" " . $info["id"] . " ", " " . $row2->form . " ") !== false)
+						{
+							if (isset($hintmap[$info["id"]]))  $lasthint = $hintmap[$info["id"]];
+
+							$this->ExtractFieldFromDOM($fields, $row2, $lasthint);
+						}
 					}
 				}
 
@@ -374,7 +390,9 @@
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
 						if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $field["checked"] = (isset($row->checked));
-						if ($lasthint !== "")  $field["hint"] = $lasthint;
+
+						if ($field["type"] == "input.submit" || $field["type"] == "input.image")  $field["hint"] = $field["type"] . "|" . $field["value"];
+						else if ($lasthint !== "")  $field["hint"] = $lasthint;
 
 						$fields[] = $field;
 
@@ -469,7 +487,7 @@
 							"name" => $row->name,
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
-						if ($lasthint !== "")  $field["hint"] = $lasthint;
+						$field["hint"] = "button|" . $field["value"];
 
 						$fields[] = $field;
 
