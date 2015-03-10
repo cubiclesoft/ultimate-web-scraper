@@ -389,7 +389,12 @@
 							"name" => $row->name,
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
-						if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")  $field["checked"] = (isset($row->checked));
+						if ($field["type"] == "input.radio" || $field["type"] == "input.checkbox")
+						{
+							$field["checked"] = (isset($row->checked));
+
+							if ($field["value"] === "")  $field["value"] = "on";
+						}
 
 						if ($field["type"] == "input.submit" || $field["type"] == "input.image")  $field["hint"] = $field["type"] . "|" . $field["value"];
 						else if ($lasthint !== "")  $field["hint"] = $lasthint;
