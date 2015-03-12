@@ -725,7 +725,7 @@
 				if ($proxyconnect)
 				{
 					$proxydata = "CONNECT " . $host . ":" . $port . " HTTP/1.1\r\n";
-					if (isset($options["headers"]["User-Agent"]))  $data .= "User-Agent: " . $options["headers"]["User-Agent"] . "\r\n";
+					if (isset($options["headers"]["User-Agent"]))  $proxydata .= "User-Agent: " . $options["headers"]["User-Agent"] . "\r\n";
 					$proxydata .= "Host: " . $host . ($defaultport ? "" : ":" . $port) . "\r\n";
 					$proxydata .= "Proxy-Connection: keep-alive\r\n";
 					if ($proxyusername != "")  $proxydata .= "Proxy-Authorization: BASIC " . base64_encode($proxyusername . ":" . $proxypassword) . "\r\n";
