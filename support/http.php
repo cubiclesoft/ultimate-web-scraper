@@ -903,7 +903,7 @@
 						self::ProcessSSLOptions($options, "proxysslopts", $host);
 						foreach ($options["proxysslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
-					$fp = @stream_socket_client($proxyprotocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["proxyconnecttimeout"], STREAM_CLIENT_CONNECT, $context);
+					$fp = @stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], STREAM_CLIENT_CONNECT, $context);
 
 					$contextopts = stream_context_get_options($context);
 					if ($proxysecure && isset($options["proxysslopts"]) && is_array($options["proxysslopts"]) && ($protocol == "ssl" || $protocol == "tls") && isset($contextopts["ssl"]["peer_certificate"]))
