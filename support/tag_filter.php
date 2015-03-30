@@ -33,6 +33,7 @@
 					"lowsrc" => "uri",
 					"background" => "uri",
 				),
+				"remove_attr_newlines" => true,
 				"remove_comments" => true,
 				"allow_namespaces" => true,
 				"charset" => "UTF-8",
@@ -44,6 +45,7 @@
 
 		public static function Run($content, $options = array())
 		{
+			if (!isset($options["remove_attr_newlines"]))  $options["remove_attr_newlines"] = true;
 			if (!isset($options["remove_comments"]))  $options["remove_comments"] = true;
 			if (!isset($options["allow_namespaces"]))  $options["allow_namespaces"] = true;
 			if (!isset($options["process_attrs"]))  $options["process_attrs"] = array();
@@ -64,20 +66,21 @@
 			$colon = ord(":");
 			$zero = ord("0");
 			$nine = ord("9");
-			while ($content !== "")
+			$cx = 0;
+			$cy = strlen($content);
+			while ($cx < $cy)
 			{
 				if ($tag)
 				{
 					// First character is '<'.  Extract all non-alpha chars.
 					$prefix = "";
-					$startpos = 1;
-					$y = strlen($content);
-					for ($x = 1; $x < $y; $x++)
+					$startpos = $cx + 1;
+					for ($x = $startpos; $x < $cy; $x++)
 					{
 						$val = ord($content{$x});
 						if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 						{
-							$prefix = ltrim(substr($content, 1, $x - 1));
+							if ($x > 1)  $prefix = ltrim(substr($content, $cx + 1, $x - $cx - 1));
 							$startpos = $x;
 
 							break;
@@ -98,11 +101,11 @@
 							else
 							{
 								// Comment.
-								$pos = strpos($content, "!--");
+								$pos = strpos($content, "!--", $cx);
 								$pos2 = strpos($content, "-->", $pos + 3);
-								if ($pos2 === false)  $pos2 = $y;
+								if ($pos2 === false)  $pos2 = $cy;
 								if (!$options["remove_comments"])  $result .= "<!-- " . htmlspecialchars(substr($content, $pos + 3, $pos2)) . " -->";
-								$content = substr($content, $pos2 + 3);
+								$cx = $pos2 + 3;
 
 								$tag = false;
 
@@ -119,16 +122,16 @@
 						{
 							// Stray less than.  Encode and reset.
 							$result .= "&lt;";
-							$content = substr($content, 1);
+							$cx++;
 
 							continue;
 						}
 						else
 						{
 							// Unknown.  Encode it.
-							$data = substr($content, 0, strpos($content, $prefix) + strlen($prefix));
+							$data = substr($content, $cx, strpos($content, $prefix, $cx) + strlen($prefix));
 							$result .= htmlspecialchars($data);
-							$content = substr($content, strlen($data));
+							$cx += strlen($data);
 
 							$tag = false;
 
@@ -138,16 +141,13 @@
 
 					// Read the tag name.
 					$tagname = "";
-					$content = substr($content, $startpos);
-					$y = strlen($content);
-					for ($x = 0; $x < $y; $x++)
+					$cx = $startpos;
+					for (; $cx < $cy; $cx++)
 					{
-						$val = ord($content{$x});
-						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($x > 0 && $val >= $zero && $val <= $nine) || ($options["allow_namespaces"] && $val == $colon)))  break;
+						$val = ord($content{$cx});
+						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($options["allow_namespaces"] && $val == $colon)))  break;
 					}
-					$tagname = strtolower(substr($content, 0, $x));
-					while (substr($tagname, -1) === ":")  $tagname = substr($tagname, 0, -1);
-					$content = substr($content, $x);
+					$tagname = strtolower(rtrim(substr($content, $startpos, $cx - $startpos), ":"));
 
 					// Process attributes/properties until a closing condition is encountered.
 					$state = "key";
@@ -156,15 +156,14 @@
 					{
 //echo "State:  " . $state . "\n";
 //echo "Content:\n" . $content . "\n";
-						$y = strlen($content);
 						if ($state === "key")
 						{
 							// Find attribute key/property.
-							for ($x = 0; $x < $y; $x++)
+							for ($x = $cx; $x < $cy; $x++)
 							{
 								if ($content{$x} === ">" || $content{$x} === "<")
 								{
-									$content = substr($content, $x);
+									$cx = $x;
 
 									$state = "exit";
 
@@ -187,8 +186,8 @@
 										else
 										{
 											$keyname = preg_replace('/[^a-z' . ($options["allow_namespaces"] ? ":" : "") . ']/', "", $keyname);
-											while (substr($keyname, -1) === ":")  $keyname = substr($keyname, 0, -1);
-											$content = substr($content, $pos + 1);
+											if ($options["allow_namespaces"])  $keyname = rtrim($keyname, ":");
+											$cx = $pos + 1;
 
 											$state = "equals";
 										}
@@ -201,18 +200,15 @@
 									$val = ord($content{$x});
 									if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 									{
-										$content = substr($content, $x);
+										$cx = $x;
 
-										$y = strlen($content);
-										for ($x = 0; $x < $y; $x++)
+										for (; $cx < $cy; $cx++)
 										{
-											$val = ord($content{$x});
-											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($x > 0 && $val >= $zero && $val <= $nine) || ($x > 0 && $val == $hyphen) || ($options["allow_namespaces"] && $val == $colon)))  break;
+											$val = ord($content{$cx});
+											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && $val >= $zero && $val <= $nine) || ($cx > $x && $val == $hyphen) || ($options["allow_namespaces"] && $val == $colon)))  break;
 										}
 
-										$keyname = strtolower(substr($content, 0, $x));
-										while (substr($keyname, -1) === ":" || substr($keyname, -1) === "-")  $keyname = substr($keyname, 0, -1);
-										$content = substr($content, $x);
+										$keyname = strtolower(rtrim(substr($content, $x, $cx - $x), "-:"));
 
 										$state = "equals";
 
@@ -224,11 +220,11 @@
 						else if ($state === "equals")
 						{
 							// Find the equals sign OR the start of the next attribute/property.
-							for ($x = 0; $x < $y; $x++)
+							for ($x = $cx; $x < $cy; $x++)
 							{
 								if ($content{$x} === ">" || $content{$x} === "<")
 								{
-									$content = substr($content, $x);
+									$cx = $x;
 
 									$attrs[$keyname] = true;
 
@@ -238,7 +234,7 @@
 								}
 								else if ($content{$x} === "=")
 								{
-									$content = substr($content, $x + 1);
+									$cx = $x + 1;
 
 									$state = "value";
 
@@ -246,7 +242,7 @@
 								}
 								else if ($content{$x} === "\"" || $content{$x} === "'")
 								{
-									$content = substr($content, $x);
+									$cx = $x;
 
 									$attrs[$keyname] = true;
 
@@ -259,7 +255,7 @@
 									$val = ord($content{$x});
 									if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($val >= $zero && $val <= $nine))
 									{
-										$content = substr($content, $x);
+										$cx = $x;
 
 										$attrs[$keyname] = true;
 
@@ -272,11 +268,11 @@
 						}
 						else if ($state === "value")
 						{
-							for ($x = 0; $x < $y; $x++)
+							for ($x = $cx; $x < $cy; $x++)
 							{
 								if ($content{$x} === ">" || $content{$x} === "<")
 								{
-									$content = substr($content, $x);
+									$cx = $x;
 
 									$attrs[$keyname] = true;
 
@@ -291,7 +287,7 @@
 									else
 									{
 										$value = substr($content, $x + 1, $pos - $x - 1);
-										$content = substr($content, $pos + 1);
+										$cx = $pos + 1;
 
 										$state = "key";
 									}
@@ -300,19 +296,17 @@
 								}
 								else if ($content{$x} !== "\0" && $content{$x} !== "\r" && $content{$x} !== "\n" && $content{$x} !== "\t" && $content{$x} !== " ")
 								{
-									$content = substr($content, $x);
+									$cx = $x;
 
-									$y = strlen($content);
-									for ($x = 0; $x < $y; $x++)
+									for (; $cx < $cy; $cx++)
 									{
-										if ($content{$x} === "\0" || $content{$x} === "\r" || $content{$x} === "\n" || $content{$x} === "\t" || $content{$x} === " " || $content{$x} === "<" || $content{$x} === ">")
+										if ($content{$cx} === "\0" || $content{$cx} === "\r" || $content{$cx} === "\n" || $content{$cx} === "\t" || $content{$cx} === " " || $content{$cx} === "<" || $content{$cx} === ">")
 										{
 											break;
 										}
 									}
 
-									$value = substr($content, 0, $x);
-									$content = substr($content, $x);
+									$value = substr($content, $x, $cx - $x);
 
 									$state = "key";
 
@@ -405,6 +399,8 @@
 								}
 								$value = $value2;
 
+								if ($options["remove_attr_newlines"])  $value = str_replace(array("\r\n", "\r", "\n"), " ", $value);
+
 								if (isset($options["process_attrs"][$keyname]))
 								{
 									$type = $options["process_attrs"][$keyname];
@@ -428,11 +424,11 @@
 								$attrs[$keyname] = $value;
 							}
 						}
-					} while ($content != "" && $state !== "exit");
+					} while ($cx < $cy && $state !== "exit");
 
 					unset($attrs[""]);
 
-					if ($content != "" && $content{0} === ">")  $content = substr($content, 1);
+					if ($cx < $cy && $content{$cx} === ">")  $cx++;
 
 					if ($prefix === "!" && $tagname === "doctype")  $tagname = "DOCTYPE";
 
@@ -523,16 +519,16 @@
 				else
 				{
 					// Regular content.
-					$pos = strpos($content, "<");
+					$pos = strpos($content, "<", $cx);
 					if ($pos === false)
 					{
-						$result .= str_replace(">", "&gt;", $content);
-						$content = "";
+						$result .= str_replace(">", "&gt;", substr($content, $cx));
+						$cx = $cy;
 					}
 					else
 					{
-						$result .= str_replace(">", "&gt;", substr($content, 0, $pos));
-						$content = substr($content, $pos);
+						$result .= str_replace(">", "&gt;", substr($content, $cx, $pos - $cx));
+						$cx = $pos;
 
 						$tag = true;
 					}
