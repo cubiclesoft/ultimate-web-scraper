@@ -412,6 +412,15 @@
 			return $body;
 		}
 
+		private static function StreamTimedOut($fp)
+		{
+			if (!function_exists("stream_get_meta_data"))  return false;
+
+			$info = stream_get_meta_data($fp);
+
+			return $info["timed_out"];
+		}
+
 		private static function GetResponse($fp, $debug, $options, $startts, $timeout)
 		{
 			$recvstart = microtime(true);
@@ -425,6 +434,7 @@
 				// Process the response line.
 				while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 				{
+					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 					$rawsize += strlen($data2);
@@ -436,6 +446,7 @@
 
 					if (feof($fp))  break;
 				}
+				if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 				$pos = strpos($data, "\n");
 				if ($pos === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve response line."), "errorcode" => "get_response_line");
 				$line = trim(substr($data, 0, $pos));
@@ -456,6 +467,7 @@
 				{
 					while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 					{
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 						$rawsize += strlen($data2);
@@ -467,6 +479,7 @@
 
 						if (feof($fp))  break;
 					}
+					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 					$pos = strpos($data, "\n");
 					if ($pos === false)  $pos = strlen($data);
 					$header = rtrim(substr($data, 0, $pos));
@@ -512,6 +525,7 @@
 						// Calculate the next chunked size and ignore chunked extensions.
 						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 						{
+							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 							$rawsize += strlen($data2);
@@ -523,6 +537,7 @@
 
 							if (feof($fp))  break;
 						}
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						$pos = strpos($data, "\n");
 						if ($pos === false)  $pos = strlen($data);
 						$line = trim(substr($data, 0, $pos));
@@ -546,6 +561,7 @@
 						}
 						while ($size2 > 0 && ($data2 = fread($fp, ($size2 > 65536 ? 65536 : $size2))) !== false)
 						{
+							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 							$tempsize = strlen($data2);
@@ -562,9 +578,12 @@
 							if (feof($fp))  break;
 						}
 
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
+
 						// Ignore one newline.
 						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 						{
+							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 							$rawsize += strlen($data2);
@@ -576,6 +595,7 @@
 
 							if (feof($fp))  break;
 						}
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						$pos = strpos($data, "\n");
 						if ($pos === false)  $pos = strlen($data);
 						$data = substr($data, $pos + 1);
@@ -587,6 +607,7 @@
 					{
 						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
 						{
+							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 							$rawsize += strlen($data2);
@@ -598,6 +619,7 @@
 
 							if (feof($fp))  break;
 						}
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						$pos = strpos($data, "\n");
 						if ($pos === false)  $pos = strlen($data);
 						$header = rtrim(substr($data, 0, $pos));
@@ -628,6 +650,7 @@
 					$datasize = 0;
 					while ($datasize < $size && ($data2 = fread($fp, ($size > 65536 ? 65536 : $size))) !== false)
 					{
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 						$tempsize = strlen($data2);
@@ -642,11 +665,13 @@
 
 						if (feof($fp))  break;
 					}
+					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 				}
 				else if ($response["code"] != 100)
 				{
 					while (($data2 = fread($fp, 65536)) !== false)
 					{
+						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 						$tempsize = strlen($data2);
@@ -660,6 +685,7 @@
 
 						if (feof($fp))  break;
 					}
+					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 				}
 
 				if ($autodecode_ds !== false)
@@ -856,7 +882,7 @@
 					unset($options["postvars"]);
 				}
 
-				if ($body != "")  $data .= "Content-Type: application/x-www-form-urlencoded\r\n";
+				if ($body != "")  $data .= "Content-Type: application/x-www-form-urlencoded; charset=UTF-8\r\n";
 
 				$bodysize = strlen($body);
 			}
@@ -912,6 +938,9 @@
 					}
 				}
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($proxysecure ? $proxyprotocol . "://" : "") . $proxyhost . ":" . $proxyport), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "proxy_connect");
+
+				// Deal with failed connections that hang the application.
+				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
 
 				$result["connected"] = microtime(true);
 
@@ -982,6 +1011,9 @@
 					}
 				}
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($secure ? $protocol . "://" : "") . $host . ":" . $port), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "connect_failed");
+
+				// Deal with failed connections that hang the application.
+				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
 
 				$result["connected"] = microtime(true);
 			}

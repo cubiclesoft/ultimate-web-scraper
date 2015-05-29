@@ -18,7 +18,7 @@
 	require_once $rootpath . "/support/simple_html_dom.php";
 	require_once $rootpath . "/support/tag_filter.php";
 
-	function TestHTMLTagFilter($stack, $content, $open, $tagname, &$attrs, $options)
+	function TestHTMLTagFilter($stack, &$content, $open, $tagname, &$attrs, $options)
 	{
 		if ($open)
 		{

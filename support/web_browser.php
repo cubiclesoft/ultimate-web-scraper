@@ -48,6 +48,12 @@
 			else if (isset($this->data["httpopts"]["timeout"]))  $timeout = $this->data["httpopts"]["timeout"];
 			else  $timeout = false;
 
+			// Deal with possible application hanging issues.
+			if (isset($tempoptions["streamtimeout"]))  $streamtimeout = $tempoptions["streamtimeout"];
+			else if (isset($this->data["httpopts"]["streamtimeout"]))  $streamtimeout = $this->data["httpopts"]["streamtimeout"];
+			else  $streamtimeout = 300;
+			$tempoptions["streamtimeout"] = $streamtimeout;
+
 			if (!isset($this->data["httpopts"]["headers"]))  $this->data["httpopts"]["headers"] = array();
 			$this->data["httpopts"]["headers"] = HTTP::NormalizeHeaders($this->data["httpopts"]["headers"]);
 			unset($this->data["httpopts"]["method"]);
