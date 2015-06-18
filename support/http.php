@@ -1,6 +1,6 @@
 <?php
-	// CubicleSoft PHP HTTP functions.
-	// (C) 2014 CubicleSoft.  All Rights Reserved.
+	// CubicleSoft PHP HTTP class.
+	// (C) 2015 CubicleSoft.  All Rights Reserved.
 
 	class HTTP
 	{
@@ -237,7 +237,7 @@
 			else if ($type == "ie9")  return "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)";
 			else if ($type == "ie10")  return "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0)";
 			else if ($type == "ie11")  return "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko";
-			else if ($type == "firefox")  return "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0";
+			else if ($type == "firefox")  return "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0";
 			else if ($type == "opera")  return "Opera/9.80 (Windows NT 6.1; WOW64) Presto/2.12.388 Version/12.16";
 			else if ($type == "safari")  return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.13+ (KHTML, like Gecko) Version/5.1.7 Safari/534.57.2";
 			else if ($type == "chrome")  return "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36";
@@ -504,6 +504,11 @@
 					if (!$options["read_headers_callback"]($response, $headers, $options["read_headers_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
 				}
 
+				$body = "";
+
+				// Handle WebSocket among other things.
+				if ($response["code"] == 101)  break;
+
 				// Determine if decoding the content is possible and necessary.
 				if ($autodecode && !isset($headers["Content-Encoding"]) || (strtolower($headers["Content-Encoding"][0]) != "gzip" && strtolower($headers["Content-Encoding"][0]) != "deflate"))  $autodecode = false;
 				if (!$autodecode)  $autodecode_ds = false;
@@ -517,7 +522,6 @@
 				}
 
 				// Process the body.
-				$body = "";
 				if (isset($headers["Transfer-Encoding"]) && strtolower($headers["Transfer-Encoding"][0]) == "chunked")
 				{
 					do
@@ -797,14 +801,12 @@
 				$data .= "Host: " . $options["headers"]["Host"] . "\r\n";
 			}
 
-			$data .= "Connection: close\r\n";
+			if (!isset($options["headers"]["Connection"]))  $options["headers"]["Connection"] = "close";
+			$data .= "Connection: " . $options["headers"]["Connection"] . "\r\n";
 
-			if (isset($options["headers"]))
+			foreach ($options["headers"] as $name => $val)
 			{
-				foreach ($options["headers"] as $name => $val)
-				{
-					if ($name != "Content-Type" && $name != "Content-Length" && $name != "Connection" && $name != "Host")  $data .= $name . ": " . $val . "\r\n";
-				}
+				if ($name != "Content-Type" && $name != "Content-Length" && $name != "Connection" && $name != "Host")  $data .= $name . ": " . $val . "\r\n";
 			}
 
 			// Process the body.
@@ -915,7 +917,17 @@
 			// Connect to the target server.
 			$errornum = 0;
 			$errorstr = "";
-			if ($useproxy)
+			if (isset($options["fp"]) && is_resource($options["fp"]))
+			{
+				$fp = $options["fp"];
+
+				if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, 1);
+
+				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
+
+				$result["connected"] = microtime(true);
+			}
+			else if ($useproxy)
 			{
 				if (!isset($options["proxyconnecttimeout"]))  $options["proxyconnecttimeout"] = 10;
 				$timeleft = self::GetTimeLeft($startts, $timeout);
@@ -1184,7 +1196,12 @@
 
 			// Get the response.
 			$info = self::GetResponse($fp, $debug, $options, $startts, $timeout);
-			fclose($fp);
+			if ($options["headers"]["Connection"] == "close")  fclose($fp);
+			else
+			{
+				$info["fp"] = $fp;
+				$result["fp"] = $fp;
+			}
 			$info["rawsendsize"] = $result["rawsendsize"];
 			if (!$info["success"])  return $info;
 
