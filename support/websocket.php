@@ -126,8 +126,8 @@
 			{
 				if ($this->state === self::STATE_OPEN)
 				{
-					if ($this->closemode === CLOSE_IMMEDIATELY)  $this->writemessages = array();
-					else if ($this->closemode === CLOSE_AFTER_CURRENT_MESSAGE)  $this->writemessages = array_slice($this->writemessages, 0, 1);
+					if ($this->closemode === self::CLOSE_IMMEDIATELY)  $this->writemessages = array();
+					else if ($this->closemode === self::CLOSE_AFTER_CURRENT_MESSAGE)  $this->writemessages = array_slice($this->writemessages, 0, 1);
 
 					$this->state = self::STATE_CLOSE;
 
@@ -253,7 +253,7 @@
 			{
 				if (count($readfp))
 				{
-					$result = fread($this->fp, 65536);
+					$result = @fread($this->fp, 65536);
 					if ($result === false)  return array("success" => false, "error" => HTTP::HTTPTranslate("Wait() failed due to fread() failure.  Most likely cause:  Connection failure."), "errorcode" => "fread_failed");
 
 					if ($result !== "")
@@ -270,7 +270,7 @@
 
 				if ($writefp !== NULL && count($writefp))
 				{
-					$result = fwrite($this->fp, $this->writedata);
+					$result = @fwrite($this->fp, $this->writedata);
 					if ($result === false)  return array("success" => false, "error" => HTTP::HTTPTranslate("Wait() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
 
 					$this->writedata = substr($this->writedata, $result);
