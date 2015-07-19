@@ -990,6 +990,9 @@
 				$state["result"]["rawrecvheadersize"] += $state["rawrecvheadersize"];
 				$state["result"]["endts"] = microtime(true);
 
+				if ($state["close"])  fclose($state["fp"]);
+				else  $state["result"] = $state["fp"];
+
 				return $state["result"];
 			}
 			else
@@ -1289,7 +1292,8 @@
 				"state" => "connecting",
 
 				"options" => $options,
-				"result" => $result
+				"result" => $result,
+				"close" => ($options["headers"]["Connection"] === "close")
 			);
 
 			// Return the state for async calls.  Caller must call ProcessState().
