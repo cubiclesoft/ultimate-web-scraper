@@ -450,11 +450,7 @@
 
 						if ($mode === "update")
 						{
-							if (!$info["keep"])
-							{
-								if (isset($info["state"]) && $info["state"]["httpstate"] !== false)  @fclose($info["state"]["httpstate"]["fp"]);
-								unset($info["state"]);
-							}
+							if (!$info["keep"])  unset($info["state"]);
 
 							$data = $info["keep"];
 						}

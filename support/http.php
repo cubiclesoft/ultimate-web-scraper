@@ -549,9 +549,33 @@
 			return array("success" => true);
 		}
 
+		private static function CleanupErrorState(&$state, $result)
+		{
+			if (!$result["success"] && $result["errorcode"] !== "no_data")
+			{
+				if ($state["fp"] !== false)
+				{
+					@fclose($state["fp"]);
+					$state["fp"] = false;
+				}
+
+				if ($state["currentfile"] !== false)
+				{
+					if ($state["currentfile"]["fp"] !== false)  @fclose($state["currentfile"]["fp"]);
+					$state["currentfile"] = false;
+				}
+
+				$state["error"] = $result;
+			}
+
+			return $result;
+		}
+
 		public static function ProcessState(&$state)
 		{
-			if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+			if (isset($state["error"]))  return $state["error"];
+
+			if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded"));
 			if (microtime(true) < $state["waituntil"])  return array("success" => false, "error" => self::HTTPTranslate("Rate limit for non-blocking connection has not been reached."), "errorcode" => "no_data");
 
 			if ($state["type"] === "request")
@@ -568,7 +592,7 @@
 								$writefp = array($state["fp"]);
 								$exceptfp = NULL;
 								$result = @stream_select($readfp, $writefp, $exceptfp, 0);
-								if ($result === false)  return array("success" => false, "error" => self::HTTPTranslate("A stream_select() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
+								if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_select() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed"));
 
 								if (!count($writefp))  return array("success" => false, "error" => self::HTTPTranslate("Connection not established yet."), "errorcode" => "no_data");
 							}
@@ -618,7 +642,7 @@
 						{
 							// Send the HTTP CONNECT request to the proxy.
 							$result = self::ProcessState__WriteData($state, "proxy");
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							// Prepare the state for handling the response from the proxy server.
 							$options2 = array();
@@ -639,12 +663,12 @@
 						{
 							// Recursively call this function to handle the proxy response.
 							$result = self::ProcessState($state["proxyresponse"]);
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							$state["result"]["rawrecvsize"] += $result["rawrecvsize"];
 							$state["result"]["rawrecvheadersize"] += $result["rawrecvheadersize"];
 
-							if (substr($result["response"]["code"], 0, 1) != "2")  return array("success" => false, "error" => self::HTTPTranslate("Expected a 200 response from the CONNECT request.  Received:  %s.", $result["response"]["line"]), "info" => $result, "errorcode" => "proxy_connect_tunnel_failed");
+							if (substr($result["response"]["code"], 0, 1) != "2")  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Expected a 200 response from the CONNECT request.  Received:  %s.", $result["response"]["line"]), "info" => $result, "errorcode" => "proxy_connect_tunnel_failed"));
 
 							// Proxy connect tunnel established.  Proceed normally.
 							$state["result"]["sendstart"] = microtime(true);
@@ -657,7 +681,7 @@
 						{
 							// Send the queued data.
 							$result = self::ProcessState__WriteData($state, "");
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							// Queue up more data.
 							if (isset($state["options"]["write_body_callback"]) && is_callable($state["options"]["write_body_callback"]))
@@ -666,7 +690,7 @@
 								{
 									$bodysize2 = $state["bodysize"];
 									$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
-									if (!$result || ($state["bodysize"] !== false && strlen($state["data"]) > $state["bodysize"]))  return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
+									if (!$result || ($state["bodysize"] !== false && strlen($state["data"]) > $state["bodysize"]))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback"));
 
 									if ($state["bodysize"] === false)
 									{
@@ -680,7 +704,7 @@
 											// Allow the body callback function to append additional headers to the content to send.
 											// It is up to the callback function to correctly format the extra headers.
 											$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
-											if (!$result)  return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
+											if (!$result)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback"));
 
 											$state["data"] .= "\r\n";
 
@@ -720,7 +744,7 @@
 									else
 									{
 										$state["currentfile"]["fp"] = @fopen($state["currentfile"]["datafile"], "rb");
-										if ($state["currentfile"]["fp"] === false)  return array("success" => false, "error" => self::HTTPTranslate("The file '%s' does not exist.", $state["currentfile"]["datafile"]), "errorcode" => "file_does_not_exist");
+										if ($state["currentfile"]["fp"] === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("The file '%s' does not exist.", $state["currentfile"]["datafile"]), "errorcode" => "file_does_not_exist"));
 									}
 								}
 
@@ -731,12 +755,7 @@
 									if ($state["currentfile"]["filesize"] >= 65536)
 									{
 										$data2 = fread($state["currentfile"]["fp"], 65536);
-										if ($data2 === false || strlen($data2) !== 65536)
-										{
-											fclose($state["currentfile"]["fp"]);
-
-											return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read");
-										}
+										if ($data2 === false || strlen($data2) !== 65536)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read"));
 
 										$state["data"] .= $data2;
 
@@ -748,12 +767,7 @@
 										if ($state["currentfile"]["filesize"] > 0)
 										{
 											$data2 = fread($fp2, $info["filesize"]);
-											if ($data2 === false || strlen($data2) != $state["currentfile"]["filesize"])
-											{
-												fclose($state["currentfile"]["fp"]);
-
-												return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read");
-											}
+											if ($data2 === false || strlen($data2) != $state["currentfile"]["filesize"])  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read"));
 
 											$state["data"] .= $data2;
 										}
@@ -773,7 +787,7 @@
 							}
 							else if ($state["bodysize"] === false || $state["bodysize"] > 0)
 							{
-								return array("success" => false, "error" => self::HTTPTranslate("A weird internal HTTP error that should never, ever happen...just happened."), "errorcode" => "impossible");
+								return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A weird internal HTTP error that should never, ever happen...just happened."), "errorcode" => "impossible"));
 							}
 
 							// All done sending data to the server.
@@ -797,11 +811,11 @@
 						case "response_line":
 						{
 							$result = self::ProcessState__ReadLine($state);
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							// Parse the response line.
 							$pos = strpos($state["data"], "\n");
-							if ($pos === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve response line."), "errorcode" => "get_response_line");
+							if ($pos === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve response line."), "errorcode" => "get_response_line"));
 							$line = trim(substr($state["data"], 0, $pos));
 							$state["data"] = substr($state["data"], $pos + 1);
 							$state["rawrecvheadersize"] += $pos + 1;
@@ -824,7 +838,7 @@
 						case "body_chunked_headers":
 						{
 							$result = self::ProcessState__ReadLine($state);
-							if (!$result["success"] && ($state["state"] === "headers" || ($result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected")))  return $result;
+							if (!$result["success"] && ($state["state"] === "headers" || ($result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected")))  return self::CleanupErrorState($state, $result);
 
 							$pos = strpos($state["data"], "\n");
 							if ($pos === false)  $pos = strlen($state["data"]);
@@ -847,7 +861,7 @@
 							{
 								if ($state["result"]["response"]["code"] != 100 && isset($state["options"]["read_headers_callback"]) && is_callable($state["options"]["read_headers_callback"]))
 								{
-									if (!call_user_func_array($state["options"]["read_headers_callback"], array(&$state["result"]["response"], &$state["result"]["headers"], &$state["options"]["read_headers_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
+									if (!call_user_func_array($state["options"]["read_headers_callback"], array(&$state["result"]["response"], &$state["result"]["headers"], &$state["options"]["read_headers_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback"));
 								}
 
 								// Additional headers (optional) are the last bit of data in a chunked response.
@@ -891,7 +905,7 @@
 						case "body_chunked_size":
 						{
 							$result = self::ProcessState__ReadLine($state);
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							$pos = strpos($state["data"], "\n");
 							if ($pos === false)  $pos = strlen($state["data"]);
@@ -912,7 +926,7 @@
 								$size2 -= $size3;
 
 								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= self::GetDecodedBody($state["autodecode_ds"], $data2);
-								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
 							}
 
 							$state["chunksize"] = $size;
@@ -924,7 +938,7 @@
 						case "body_chunked_data":
 						{
 							$result = self::ProcessState__ReadBodyData($state);
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							if ($state["chunksize"] > 0)  $state["state"] = "body_chunked_skipline";
 							else
@@ -938,7 +952,7 @@
 						case "body_chunked_skipline":
 						{
 							$result = self::ProcessState__ReadLine($state);
-							if (!$result["success"])  return $result;
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
 
 							// Ignore one newline.
 							$pos = strpos($state["data"], "\n");
@@ -952,7 +966,7 @@
 						case "body_content":
 						{
 							$result = self::ProcessState__ReadBodyData($state);
-							if (!$result["success"] && (($state["sizeleft"] !== false && $state["sizeleft"] > 0) || ($state["sizeleft"] === false && $result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected" && $result["errorcode"] !== "stream_timeout_exceeded")))  return $result;
+							if (!$result["success"] && (($state["sizeleft"] !== false && $state["sizeleft"] > 0) || ($state["sizeleft"] === false && $result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected" && $result["errorcode"] !== "stream_timeout_exceeded")))  return self::CleanupErrorState($state, $result);
 
 							$state["state"] = "body_finalize";
 
@@ -966,7 +980,7 @@
 								$data2 = $state["autodecode_ds"]->Read();
 
 								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= $data2;
-								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], $data2, &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], $data2, &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
 							}
 
 							$state["state"] = "done";
@@ -998,7 +1012,7 @@
 			}
 			else
 			{
-				return array("success" => false, "error" => self::HTTPTranslate("Invalid 'type' in state tracker."), "errorcode" => "invalid_type");
+				return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Invalid 'type' in state tracker."), "errorcode" => "invalid_type"));
 			}
 		}
 

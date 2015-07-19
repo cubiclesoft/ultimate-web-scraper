@@ -64,7 +64,7 @@
 				case "init":
 				case "update":
 				{
-					// Move to the live queue.
+					// Move to/Keep in the live queue.
 					if (is_resource($fp))  $data = true;
 
 					break;
@@ -91,7 +91,7 @@
 				case "init":
 				case "update":
 				{
-					// Move to the live queue.
+					// Move to/Keep in the live queue.
 					if (is_resource($fp))  $data = true;
 
 					break;
@@ -118,7 +118,7 @@
 				case "init":
 				case "update":
 				{
-					// Move to the live queue.
+					// Move to/Keep in the live queue.
 					if (is_resource($fp))  $data = true;
 
 					break;
@@ -212,7 +212,7 @@
 
 							if (isset($this->objs[$key]))
 							{
-								call_user_func_array($info["callback"], array("read", &$fp, $key, &$this->objs[$key]));
+								call_user_func_array($info["callback"], array("read", &$fp, $key, &$this->objs[$key]["obj"]));
 
 								$readfps3[$key] = $fp;
 							}
@@ -236,7 +236,7 @@
 
 							if (isset($this->objs[$key]))
 							{
-								call_user_func_array($info["callback"], array("write", &$fp, $key, &$this->objs[$key]));
+								call_user_func_array($info["callback"], array("write", &$fp, $key, &$this->objs[$key]["obj"]));
 
 								$readfps3[$key] = $fp;
 							}
