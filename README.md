@@ -10,6 +10,7 @@ Features
 * Supports file transfers, SSL, and HTTP/HTTPS/CONNECT proxies.
 * Easy to emulate various web browser headers.
 * A web browser-like state engine that emulates redirection (e.g. 301) and automatic cookie handling for managing multiple requests.
+* HTML form extraction and manipulation support.  No need to fake forms!
 * Extensive callback support.
 * Asynchronous socket support.
 * WebSocket support.

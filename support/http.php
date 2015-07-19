@@ -674,12 +674,14 @@
 										// When $bodysize2 is set to true, it is the last chunk.
 										if ($bodysize2 === true)
 										{
-											$state["data"] .= "0\r\n\r\n";
+											$state["data"] .= "0\r\n";
 
 											// Allow the body callback function to append additional headers to the content to send.
 											// It is up to the callback function to correctly format the extra headers.
 											$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
 											if (!$result)  return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
+
+											$state["data"] .= "\r\n";
 
 											$state["bodysize"] = 0;
 										}
@@ -923,7 +925,12 @@
 							$result = self::ProcessState__ReadBodyData($state);
 							if (!$result["success"])  return $result;
 
-							$state["state"] = "body_chunked_skipline";
+							if ($state["chunksize"] > 0)  $state["state"] = "body_chunked_skipline";
+							else
+							{
+								$state["lastheader"] = "";
+								$state["state"] = "body_chunked_headers";
+							}
 
 							break;
 						}
@@ -937,12 +944,7 @@
 							if ($pos === false)  $pos = strlen($state["data"]);
 							$state["data"] = substr($state["data"], $pos + 1);
 
-							if ($state["chunksize"] > 0)  $state["state"] = "body_chunked_size";
-							else
-							{
-								$state["lastheader"] = "";
-								$state["state"] = "body_chunked_headers";
-							}
+							$state["state"] = "body_chunked_size";
 
 							break;
 						}
