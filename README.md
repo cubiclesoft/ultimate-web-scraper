@@ -11,9 +11,11 @@ Features
 * Easy to emulate various web browser headers.
 * A web browser-like state engine that emulates redirection (e.g. 301) and automatic cookie handling for managing multiple requests.
 * Extensive callback support.
+* Asynchronous socket support.
 * WebSocket support.
 * A full cURL emulation layer for drop-in use on web hosts that are missing cURL.
 * Includes Simple HTML DOM to easily parse and extract the desired content from HTML.
+* Also has a powerful tag filtering library for parsing really difficult HTML content when Simple HTML DOM isn't enough (e.g. Microsoft Word HTML).
 * Has a liberal open source license.  MIT or LGPL, your choice.
 * Designed for relatively painless integration into your project.
 * Sits on GitHub for all of that pull request and issue tracker goodness to easily submit changes and ideas respectively.

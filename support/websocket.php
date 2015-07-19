@@ -126,6 +126,9 @@
 				$options["headers"]["Sec-WebSocket-Version"] = "13";
 				$options["headers"]["Upgrade"] = "websocket";
 
+				// No async support for connecting at this time.  Async mode is enabled AFTER connecting though.
+				unset($options["async"]);
+
 				// Connect to the WebSocket.
 				$result = $web->Process($url2, $profile, $options);
 				if (!$result["success"])  return $result;

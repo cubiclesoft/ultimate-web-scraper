@@ -40,6 +40,314 @@
 			return $this->data;
 		}
 
+		public function ProcessState(&$state)
+		{
+			while ($state["state"] !== "done")
+			{
+				switch ($state["state"])
+				{
+					case "initialize":
+					{
+						if (!isset($this->data["allowedprotocols"][$state["urlinfo"]["scheme"]]) || !$this->data["allowedprotocols"][$state["urlinfo"]["scheme"]])
+						{
+							return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed in '%s'.", $state["urlinfo"]["scheme"], $state["url"]), "errorcode" => "allowed_protocols");
+						}
+
+						$filename = HTTP::ExtractFilename($state["urlinfo"]["path"]);
+						$pos = strrpos($filename, ".");
+						$fileext = ($pos !== false ? strtolower(substr($filename, $pos + 1)) : "");
+
+						// Set up some standard headers.
+						$headers = array();
+						$profile = strtolower($state["profile"]);
+						$tempprofile = explode("-", $profile);
+						if (count($tempprofile) == 2)
+						{
+							$profile = $tempprofile[0];
+							$fileext = $tempprofile[1];
+						}
+						if (substr($profile, 0, 2) == "ie" || ($profile == "auto" && substr($this->data["useragent"], 0, 2) == "ie"))
+						{
+							if ($fileext == "css")  $headers["Accept"] = "text/css";
+							else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg")  $headers["Accept"] = "image/png, image/svg+xml, image/*;q=0.8, */*;q=0.5";
+							else if ($fileext == "js")  $headers["Accept"] = "application/javascript, */*;q=0.8";
+							else if ($this->data["referer"] != "" || $fileext == "" || $fileext == "html" || $fileext == "xhtml" || $fileext == "xml")  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
+							else  $headers["Accept"] = "*/*";
+
+							$headers["Accept-Language"] = "en-US";
+							$headers["User-Agent"] = HTTP::GetUserAgent(substr($profile, 0, 2) == "ie" ? $profile : $this->data["useragent"]);
+						}
+						else if ($profile == "firefox" || ($profile == "auto" && $this->data["useragent"] == "firefox"))
+						{
+							if ($fileext == "css")  $headers["Accept"] = "text/css,*/*;q=0.1";
+							else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg")  $headers["Accept"] = "image/png,image/*;q=0.8,*/*;q=0.5";
+							else if ($fileext == "js")  $headers["Accept"] = "*/*";
+							else  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
+
+							$headers["Accept-Language"] = "en-us,en;q=0.5";
+							$headers["Cache-Control"] = "max-age=0";
+							$headers["User-Agent"] = HTTP::GetUserAgent("firefox");
+						}
+						else if ($profile == "opera" || ($profile == "auto" && $this->data["useragent"] == "opera"))
+						{
+							// Opera has the right idea:  Just send the same thing regardless of the request type.
+							$headers["Accept"] = "text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1";
+							$headers["Accept-Language"] = "en-US,en;q=0.9";
+							$headers["Cache-Control"] = "no-cache";
+							$headers["User-Agent"] = HTTP::GetUserAgent("opera");
+						}
+						else if ($profile == "safari" || $profile == "chrome" || ($profile == "auto" && ($this->data["useragent"] == "safari" || $this->data["useragent"] == "chrome")))
+						{
+							if ($fileext == "css")  $headers["Accept"] = "text/css,*/*;q=0.1";
+							else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg" || $fileext == "js")  $headers["Accept"] = "*/*";
+							else  $headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+
+							$headers["Accept-Charset"] = "ISO-8859-1,utf-8;q=0.7,*;q=0.3";
+							$headers["Accept-Language"] = "en-US,en;q=0.8";
+							$headers["User-Agent"] = HTTP::GetUserAgent($profile == "safari" || $profile == "chrome" ? $profile : $this->data["useragent"]);
+						}
+
+						if ($this->data["referer"] != "")  $headers["Referer"] = $this->data["referer"];
+
+						// Generate the final headers array.
+						$headers = array_merge($headers, $state["httpopts"]["headers"], $state["tempoptions"]["headers"]);
+
+						// Calculate the host and reverse host and remove port information.
+						$host = (isset($headers["Host"]) ? $headers["Host"] : $state["urlinfo"]["host"]);
+						$pos = strpos($host, "]");
+						if (substr($host, 0, 1) == "[" && $pos !== false)
+						{
+							$host = substr($host, 0, $pos + 1);
+						}
+						else
+						{
+							$pos = strpos($host, ":");
+							if ($pos !== false)  $host = substr($host, 0, $pos);
+						}
+						$dothost = $host;
+						$dothost = strtolower($dothost);
+						if (substr($dothost, 0, 1) != ".")  $dothost = "." . $dothost;
+
+						// Append cookies and delete old, invalid cookies.
+						$secure = ($state["urlinfo"]["scheme"] == "https");
+						$cookiepath = $state["urlinfo"]["path"];
+						if ($cookiepath == "")  $cookiepath = "/";
+						$pos = strrpos($cookiepath, "/");
+						if ($pos !== false)  $cookiepath = substr($cookiepath, 0, $pos + 1);
+						$cookies = array();
+						foreach ($this->data["cookies"] as $domain => $paths)
+						{
+							if (strlen($dothost) >= strlen($domain) && substr($dothost, -strlen($domain)) === $domain)
+							{
+								foreach ($paths as $path => $cookies2)
+								{
+									if (substr($cookiepath, 0, strlen($path)) == $path)
+									{
+										foreach ($cookies2 as $num => $info)
+										{
+											if (isset($info["expires_ts"]) && $this->GetExpiresTimestamp($info["expires_ts"]) < time())  unset($this->data["cookies"][$domain][$path][$num]);
+											else if ($secure || !isset($info["secure"]))  $cookies[$info["name"]] = $info["value"];
+										}
+
+										if (!count($this->data["cookies"][$domain][$path]))  unset($this->data["cookies"][$domain][$path]);
+									}
+								}
+
+								if (!count($this->data["cookies"][$domain]))  unset($this->data["cookies"][$domain]);
+							}
+						}
+
+						$cookies2 = array();
+						foreach ($cookies as $name => $value)  $cookies2[] = rawurlencode($name) . "=" . rawurlencode($value);
+						$headers["Cookie"] = implode("; ", $cookies2);
+						if ($headers["Cookie"] == "")  unset($headers["Cookie"]);
+
+						// Generate the final options array.
+						$state["options"] = array_merge($state["httpopts"], $state["tempoptions"]);
+						$state["options"]["headers"] = $headers;
+						if ($state["timeout"] !== false)  $state["options"]["timeout"] = HTTP::GetTimeLeft($state["startts"], $state["timeout"]);
+
+						// Process the request.
+						$result = HTTP::RetrieveWebpage($state["url"], $state["options"]);
+						$result["url"] = $state["url"];
+						unset($state["options"]["files"]);
+						unset($state["options"]["body"]);
+						$result["options"] = $state["options"];
+						$result["firstreqts"] = $state["startts"];
+						$result["numredirects"] = $state["numredirects"];
+						$result["redirectts"] = $state["redirectts"];
+						if (isset($result["rawsendsize"]))  $state["totalrawsendsize"] += $result["rawsendsize"];
+						$result["totalrawsendsize"] = $state["totalrawsendsize"];
+						if (!$result["success"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Unable to retrieve content.  %s", $result["error"]), "info" => $result, "state" => $state, "errorcode" => "retrievewebpage");
+
+						if (isset($state["options"]["async"]) && $state["options"]["async"])
+						{
+							$state["async"] = true;
+							$state["httpstate"] = $result["state"];
+
+							$state["state"] = "process_async";
+						}
+						else
+						{
+							$state["result"] = $result;
+
+							$state["state"] = "post_retrieval";
+						}
+
+						break;
+					}
+					case "process_async":
+					{
+						// Run a cycle of the HTTP state processor.
+						$result = HTTP::ProcessState($state["httpstate"]);
+						if (!$result["success"])  return $result;
+
+						$result["url"] = $state["url"];
+						$result["options"] = $state["options"];
+						unset($result["options"]["files"]);
+						unset($result["options"]["body"]);
+						$result["firstreqts"] = $state["startts"];
+						$result["numredirects"] = $state["numredirects"];
+						$result["redirectts"] = $state["redirectts"];
+						if (isset($result["rawsendsize"]))  $state["totalrawsendsize"] += $result["rawsendsize"];
+						$result["totalrawsendsize"] = $state["totalrawsendsize"];
+
+						$state["httpstate"] = false;
+						$state["result"] = $result;
+
+						$state["state"] = "post_retrieval";
+
+						break;
+					}
+					case "post_retrieval":
+					{
+						// Set up structures for another round.
+						if ($this->data["autoreferer"])  $this->data["referer"] = $state["url"];
+						if (isset($state["result"]["headers"]["Location"]) && $this->data["followlocation"])
+						{
+							$state["redirectts"] = microtime(true);
+
+							unset($state["tempoptions"]["method"]);
+							unset($state["tempoptions"]["write_body_callback"]);
+							unset($state["tempoptions"]["body"]);
+							unset($state["tempoptions"]["postvars"]);
+							unset($state["tempoptions"]["files"]);
+
+							$state["tempoptions"]["headers"]["Referer"] = $state["url"];
+							$state["url"] = $state["result"]["headers"]["Location"][0];
+
+							// Generate an absolute URL.
+							if ($this->data["referer"] != "")  $state["url"] = HTTP::ConvertRelativeToAbsoluteURL($this->data["referer"], $state["url"]);
+
+							$urlinfo2 = HTTP::ExtractURL($state["url"]);
+
+							if (!isset($this->data["allowedredirprotocols"][$urlinfo2["scheme"]]) || !$this->data["allowedredirprotocols"][$urlinfo2["scheme"]])
+							{
+								return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed.  Server attempted to redirect to '%s'.", $urlinfo2["scheme"], $state["url"]), "info" => $state["result"], "errorcode" => "allowed_redir_protocols");
+							}
+
+							if ($urlinfo2["host"] != $state["urlinfo"]["host"])
+							{
+								unset($state["tempoptions"]["headers"]["Host"]);
+								unset($state["httpopts"]["headers"]["Host"]);
+							}
+
+							$state["urlinfo"] = $urlinfo2;
+							$state["numredirects"]++;
+						}
+
+						// Handle any 'Set-Cookie' headers.
+						if (isset($state["result"]["headers"]["Set-Cookie"]))
+						{
+							foreach ($state["result"]["headers"]["Set-Cookie"] as $cookie)
+							{
+								$items = explode("; ", $cookie);
+								$item = trim(array_shift($items));
+								if ($item != "")
+								{
+									$cookie2 = array();
+									$pos = strpos($item, "=");
+									if ($pos === false)
+									{
+										$cookie2["name"] = urldecode($item);
+										$cookie2["value"] = "";
+									}
+									else
+									{
+										$cookie2["name"] = urldecode(substr($item, 0, $pos));
+										$cookie2["value"] = urldecode(substr($item, $pos + 1));
+									}
+
+									$cookie = array();
+									foreach ($items as $item)
+									{
+										$item = trim($item);
+										if ($item != "")
+										{
+											$pos = strpos($item, "=");
+											if ($pos === false)  $cookie[strtolower(trim(urldecode($item)))] = "";
+											else  $cookie[strtolower(trim(urldecode(substr($item, 0, $pos))))] = urldecode(substr($item, $pos + 1));
+										}
+									}
+									$cookie = array_merge($cookie, $cookie2);
+
+									if (isset($cookie["expires"]))
+									{
+										$ts = HTTP::GetDateTimestamp($cookie["expires"]);
+										$cookie["expires_ts"] = gmdate("Y-m-d H:i:s", ($ts === false ? time() - 24 * 60 * 60 : $ts));
+									}
+									else if (isset($cookie["max-age"]))
+									{
+										$cookie["expires_ts"] = gmdate("Y-m-d H:i:s", time() + (int)$cookie["max-age"]);
+									}
+									else
+									{
+										unset($cookie["expires_ts"]);
+									}
+
+									if (!isset($cookie["domain"]))  $cookie["domain"] = $dothost;
+									$cookie["domain"] = strtolower($cookie["domain"]);
+									if (substr($cookie["domain"], 0, 1) != ".")  $cookie["domain"] = "." . $cookie["domain"];
+									if (!isset($cookie["path"]))  $cookie["path"] = $cookiepath;
+									$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
+									if (substr($cookie["path"], -1) != "/")  $cookie["path"] = "/";
+
+									if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
+									if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
+									$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
+								}
+							}
+						}
+
+						if ($state["numfollow"] > 0)  $state["numfollow"]--;
+
+						// If this is a redirect, handle it by starting over.
+						if (isset($state["result"]["headers"]["Location"]) && $this->data["followlocation"] && $state["numfollow"])
+						{
+							$state["result"] = false;
+
+							$state["state"] = "initialize";
+						}
+						else
+						{
+							$state["result"]["numredirects"] = $state["numredirects"];
+							$state["result"]["redirectts"] = $state["redirectts"];
+
+							// Extract the forms from the page in a parsed format.
+							// Call WebBrowser::GenerateFormRequest() to prepare an actual request for Process().
+							if ($this->data["extractforms"])  $state["result"]["forms"] = $this->ExtractForms($state["result"]["url"], $state["result"]["body"], (isset($state["tempoptions"]["extractforms_hint"]) ? $state["tempoptions"]["extractforms_hint"] : false));
+
+							$state["state"] = "done";
+						}
+
+						break;
+					}
+				}
+			}
+
+			return $state["result"];
+		}
+
 		public function Process($url, $profile = "auto", $tempoptions = array())
 		{
 			$startts = microtime(true);
@@ -76,247 +384,31 @@
 
 			$urlinfo = HTTP::ExtractURL($url);
 
-			do
-			{
-				if (!isset($this->data["allowedprotocols"][$urlinfo["scheme"]]) || !$this->data["allowedprotocols"][$urlinfo["scheme"]])
-				{
-					return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed in '%s'.", $urlinfo["scheme"], $url), "errorcode" => "allowed_protocols");
-				}
+			// Initialize the process state array.
+			$state = array(
+				"async" => false,
+				"startts" => $startts,
+				"redirectts" => $redirectts,
+				"timeout" => $timeout,
+				"tempoptions" => $tempoptions,
+				"httpopts" => $httpopts,
+				"numfollow" => $numfollow,
+				"numredirects" => $numredirects,
+				"totalrawsendsize" => $totalrawsendsize,
+				"profile" => $profile,
+				"url" => $url,
+				"urlinfo" => $urlinfo,
 
-				$filename = HTTP::ExtractFilename($urlinfo["path"]);
-				$pos = strrpos($filename, ".");
-				$fileext = ($pos !== false ? strtolower(substr($filename, $pos + 1)) : "");
+				"state" => "initialize",
+				"httpstate" => false,
+				"result" => false,
+			);
 
-				// Set up some standard headers.
-				$headers = array();
-				$profile = strtolower($profile);
-				$tempprofile = explode("-", $profile);
-				if (count($tempprofile) == 2)
-				{
-					$profile = $tempprofile[0];
-					$fileext = $tempprofile[1];
-				}
-				if (substr($profile, 0, 2) == "ie" || ($profile == "auto" && substr($this->data["useragent"], 0, 2) == "ie"))
-				{
-					if ($fileext == "css")  $headers["Accept"] = "text/css";
-					else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg")  $headers["Accept"] = "image/png, image/svg+xml, image/*;q=0.8, */*;q=0.5";
-					else if ($fileext == "js")  $headers["Accept"] = "application/javascript, */*;q=0.8";
-					else if ($this->data["referer"] != "" || $fileext == "" || $fileext == "html" || $fileext == "xhtml" || $fileext == "xml")  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
-					else  $headers["Accept"] = "*/*";
+			// Run at least one state cycle to properly initialize the state array.
+			$result = $this->ProcessState($state);
 
-					$headers["Accept-Language"] = "en-US";
-					$headers["User-Agent"] = HTTP::GetUserAgent(substr($profile, 0, 2) == "ie" ? $profile : $this->data["useragent"]);
-				}
-				else if ($profile == "firefox" || ($profile == "auto" && $this->data["useragent"] == "firefox"))
-				{
-					if ($fileext == "css")  $headers["Accept"] = "text/css,*/*;q=0.1";
-					else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg")  $headers["Accept"] = "image/png,image/*;q=0.8,*/*;q=0.5";
-					else if ($fileext == "js")  $headers["Accept"] = "*/*";
-					else  $headers["Accept"] = "text/html, application/xhtml+xml, */*";
-
-					$headers["Accept-Language"] = "en-us,en;q=0.5";
-					$headers["Cache-Control"] = "max-age=0";
-					$headers["User-Agent"] = HTTP::GetUserAgent("firefox");
-				}
-				else if ($profile == "opera" || ($profile == "auto" && $this->data["useragent"] == "opera"))
-				{
-					// Opera has the right idea:  Just send the same thing regardless of the request type.
-					$headers["Accept"] = "text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1";
-					$headers["Accept-Language"] = "en-US,en;q=0.9";
-					$headers["Cache-Control"] = "no-cache";
-					$headers["User-Agent"] = HTTP::GetUserAgent("opera");
-				}
-				else if ($profile == "safari" || $profile == "chrome" || ($profile == "auto" && ($this->data["useragent"] == "safari" || $this->data["useragent"] == "chrome")))
-				{
-					if ($fileext == "css")  $headers["Accept"] = "text/css,*/*;q=0.1";
-					else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg" || $fileext == "js")  $headers["Accept"] = "*/*";
-					else  $headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-
-					$headers["Accept-Charset"] = "ISO-8859-1,utf-8;q=0.7,*;q=0.3";
-					$headers["Accept-Language"] = "en-US,en;q=0.8";
-					$headers["User-Agent"] = HTTP::GetUserAgent($profile == "safari" || $profile == "chrome" ? $profile : $this->data["useragent"]);
-				}
-
-				if ($this->data["referer"] != "")  $headers["Referer"] = $this->data["referer"];
-
-				// Generate the final headers array.
-				$headers = array_merge($headers, $httpopts["headers"], $tempoptions["headers"]);
-
-				// Calculate the host and reverse host and remove port information.
-				$host = (isset($headers["Host"]) ? $headers["Host"] : $urlinfo["host"]);
-				$pos = strpos($host, "]");
-				if (substr($host, 0, 1) == "[" && $pos !== false)
-				{
-					$host = substr($host, 0, $pos + 1);
-				}
-				else
-				{
-					$pos = strpos($host, ":");
-					if ($pos !== false)  $host = substr($host, 0, $pos);
-				}
-				$dothost = $host;
-				$dothost = strtolower($dothost);
-				if (substr($dothost, 0, 1) != ".")  $dothost = "." . $dothost;
-
-				// Append cookies and delete old, invalid cookies.
-				$secure = ($urlinfo["scheme"] == "https");
-				$cookiepath = $urlinfo["path"];
-				if ($cookiepath == "")  $cookiepath = "/";
-				$pos = strrpos($cookiepath, "/");
-				if ($pos !== false)  $cookiepath = substr($cookiepath, 0, $pos + 1);
-				$cookies = array();
-				foreach ($this->data["cookies"] as $domain => $paths)
-				{
-					if (strlen($dothost) >= strlen($domain) && substr($dothost, -strlen($domain)) === $domain)
-					{
-						foreach ($paths as $path => $cookies2)
-						{
-							if (substr($cookiepath, 0, strlen($path)) == $path)
-							{
-								foreach ($cookies2 as $num => $info)
-								{
-									if (isset($info["expires_ts"]) && $this->GetExpiresTimestamp($info["expires_ts"]) < time())  unset($this->data["cookies"][$domain][$path][$num]);
-									else if ($secure || !isset($info["secure"]))  $cookies[$info["name"]] = $info["value"];
-								}
-
-								if (!count($this->data["cookies"][$domain][$path]))  unset($this->data["cookies"][$domain][$path]);
-							}
-						}
-
-						if (!count($this->data["cookies"][$domain]))  unset($this->data["cookies"][$domain]);
-					}
-				}
-
-				$cookies2 = array();
-				foreach ($cookies as $name => $value)  $cookies2[] = rawurlencode($name) . "=" . rawurlencode($value);
-				$headers["Cookie"] = implode("; ", $cookies2);
-				if ($headers["Cookie"] == "")  unset($headers["Cookie"]);
-
-				// Generate the final options array.
-				$options = array_merge($httpopts, $tempoptions);
-				$options["headers"] = $headers;
-				if ($timeout !== false)  $options["timeout"] = HTTP::GetTimeLeft($startts, $timeout);
-
-				// Process the request.
-				$result = HTTP::RetrieveWebpage($url, $options);
-				$result["url"] = $url;
-				$result["options"] = $options;
-				$result["firstreqts"] = $startts;
-				$result["numredirects"] = $numredirects;
-				$result["redirectts"] = $redirectts;
-				if (isset($result["rawsendsize"]))  $totalrawsendsize += $result["rawsendsize"];
-				$result["totalrawsendsize"] = $totalrawsendsize;
-				unset($result["options"]["files"]);
-				unset($result["options"]["body"]);
-				if (!$result["success"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Unable to retrieve content.  %s", $result["error"]), "info" => $result, "errorcode" => "retrievewebpage");
-
-				// Set up structures for another round.
-				if ($this->data["autoreferer"])  $this->data["referer"] = $url;
-				if (isset($result["headers"]["Location"]) && $this->data["followlocation"])
-				{
-					$redirectts = microtime(true);
-
-					unset($tempoptions["method"]);
-					unset($tempoptions["write_body_callback"]);
-					unset($tempoptions["body"]);
-					unset($tempoptions["postvars"]);
-					unset($tempoptions["files"]);
-
-					$tempoptions["headers"]["Referer"] = $url;
-					$url = $result["headers"]["Location"][0];
-
-					// Generate an absolute URL.
-					if ($this->data["referer"] != "")  $url = HTTP::ConvertRelativeToAbsoluteURL($this->data["referer"], $url);
-
-					$urlinfo2 = HTTP::ExtractURL($url);
-
-					if (!isset($this->data["allowedredirprotocols"][$urlinfo2["scheme"]]) || !$this->data["allowedredirprotocols"][$urlinfo2["scheme"]])
-					{
-						return array("success" => false, "error" => HTTP::HTTPTranslate("Protocol '%s' is not allowed.  Server attempted to redirect to '%s'.", $urlinfo2["scheme"], $url), "info" => $result, "errorcode" => "allowed_redir_protocols");
-					}
-
-					if ($urlinfo2["host"] != $urlinfo["host"])
-					{
-						unset($tempoptions["headers"]["Host"]);
-						unset($httpopts["headers"]["Host"]);
-					}
-
-					$urlinfo = $urlinfo2;
-					$numredirects++;
-				}
-
-				// Handle any 'Set-Cookie' headers.
-				if (isset($result["headers"]["Set-Cookie"]))
-				{
-					foreach ($result["headers"]["Set-Cookie"] as $cookie)
-					{
-						$items = explode("; ", $cookie);
-						$item = trim(array_shift($items));
-						if ($item != "")
-						{
-							$cookie2 = array();
-							$pos = strpos($item, "=");
-							if ($pos === false)
-							{
-								$cookie2["name"] = urldecode($item);
-								$cookie2["value"] = "";
-							}
-							else
-							{
-								$cookie2["name"] = urldecode(substr($item, 0, $pos));
-								$cookie2["value"] = urldecode(substr($item, $pos + 1));
-							}
-
-							$cookie = array();
-							foreach ($items as $item)
-							{
-								$item = trim($item);
-								if ($item != "")
-								{
-									$pos = strpos($item, "=");
-									if ($pos === false)  $cookie[strtolower(trim(urldecode($item)))] = "";
-									else  $cookie[strtolower(trim(urldecode(substr($item, 0, $pos))))] = urldecode(substr($item, $pos + 1));
-								}
-							}
-							$cookie = array_merge($cookie, $cookie2);
-
-							if (isset($cookie["expires"]))
-							{
-								$ts = HTTP::GetDateTimestamp($cookie["expires"]);
-								$cookie["expires_ts"] = gmdate("Y-m-d H:i:s", ($ts === false ? time() - 24 * 60 * 60 : $ts));
-							}
-							else if (isset($cookie["max-age"]))
-							{
-								$cookie["expires_ts"] = gmdate("Y-m-d H:i:s", time() + (int)$cookie["max-age"]);
-							}
-							else
-							{
-								unset($cookie["expires_ts"]);
-							}
-
-							if (!isset($cookie["domain"]))  $cookie["domain"] = $dothost;
-							$cookie["domain"] = strtolower($cookie["domain"]);
-							if (substr($cookie["domain"], 0, 1) != ".")  $cookie["domain"] = "." . $cookie["domain"];
-							if (!isset($cookie["path"]))  $cookie["path"] = $cookiepath;
-							$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
-							if (substr($cookie["path"], -1) != "/")  $cookie["path"] = "/";
-
-							if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
-							if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
-							$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
-						}
-					}
-				}
-
-				if ($numfollow > 0)  $numfollow--;
-			} while (isset($result["headers"]["Location"]) && $this->data["followlocation"] && $numfollow);
-
-			$result["numredirects"] = $numredirects;
-			$result["redirectts"] = $redirectts;
-
-			// Extract the forms from the page in a parsed format.
-			// Call WebBrowser::GenerateFormRequest() to prepare an actual request for Process().
-			if ($this->data["extractforms"])  $result["forms"] = $this->ExtractForms($result["url"], $result["body"], (isset($tempoptions["extractforms_hint"]) ? $tempoptions["extractforms_hint"] : false));
+			// Return the state for async calls.  Caller must call ProcessState().
+			if ($state["async"])  return array("success" => true, "state" => $state);
 
 			return $result;
 		}

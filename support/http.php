@@ -387,7 +387,7 @@
 			return $limit - $difftime;
 		}
 
-		private static function ProcessRateLimit($size, $start, $limit)
+		private static function ProcessRateLimit($size, $start, $limit, $async)
 		{
 			$difftime = microtime(true) - $start;
 			if ($difftime > 0.0)
@@ -396,9 +396,14 @@
 				{
 					// Sleeping for some amount of time will equalize the rate.
 					// So, solve this for $x:  $size / ($x + $difftime) = $limit
-					usleep(($size - ($limit * $difftime)) / $limit);
+					$amount = ($size - ($limit * $difftime)) / $limit;
+
+					if ($async)  return microtime(true) + $amount;
+					else  usleep($amount);
 				}
 			}
+
+			return -1.0;
 		}
 
 		private static function GetDecodedBody(&$autodecode_ds, $body)
@@ -421,288 +426,574 @@
 			return $info["timed_out"];
 		}
 
-		private static function GetResponse($fp, $debug, $options, $startts, $timeout)
+		private static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result)
 		{
-			$recvstart = microtime(true);
-			$rawdata = $data = "";
-			$rawsize = $rawrecvheadersize = 0;
+			$state = array(
+				"fp" => $fp,
+				"type" => "response",
+				"async" => (isset($options["async"]) ? $options["async"] : false),
+				"debug" => $debug,
+				"startts" => $startts,
+				"timeout" => $timeout,
+				"waituntil" => -1.0,
+				"rawdata" => "",
+				"data" => "",
+				"rawsize" => 0,
+				"rawrecvheadersize" => 0,
+				"autodecode" => (!isset($options["auto_decode"]) || $options["auto_decode"]),
 
-			do
+				"state" => "response_line",
+
+				"options" => $options,
+				"result" => $result
+			);
+
+			$state["result"]["recvstart"] = microtime(true);
+			$state["result"]["response"] = false;
+			$state["result"]["headers"] = false;
+			$state["result"]["body"] = false;
+
+			return $state;
+		}
+
+		// Reads one or more lines in.
+		private static function ProcessState__ReadLine(&$state)
+		{
+			while (strpos($state["data"], "\n") === false)
 			{
-				$autodecode = (!isset($options["auto_decode"]) || $options["auto_decode"]);
-
-				// Process the response line.
-				while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
+				$data2 = @fgets($state["fp"], 116000);
+				if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
+				if (strpos($data2, "\n") === false)
 				{
-					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+					if (feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
+					if (self::StreamTimedOut($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 
-					$rawsize += strlen($data2);
-					$data .= $data2;
-
-					if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-					else if ($debug)  $rawdata .= $data2;
-
-					if (feof($fp))  break;
+					if ($state["async"] && $data2 === "")  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
 				}
-				if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-				$pos = strpos($data, "\n");
-				if ($pos === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve response line."), "errorcode" => "get_response_line");
-				$line = trim(substr($data, 0, $pos));
-				$data = substr($data, $pos + 1);
-				$rawrecvheadersize += $pos + 1;
-				$response = explode(" ", $line, 3);
-				$response = array(
-					"line" => $line,
-					"httpver" => strtoupper($response[0]),
-					"code" => $response[1],
-					"meaning" => $response[2]
-				);
+				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
-				// Process the headers.
-				$headers = array();
-				$lastheader = "";
-				do
+				$state["rawsize"] += strlen($data2);
+				$state["data"] .= $data2;
+
+				if (isset($state["options"]["recvratelimit"]))  $state["waituntil"] = self::ProcessRateLimit($state["rawsize"], $state["recvstart"], $state["options"]["recvratelimit"], $state["async"]);
+
+				if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("rawrecv", $data2, &$state["options"]["debug_callback_opts"]));
+				else if ($state["debug"])  $state["rawdata"] .= $data2;
+			}
+
+			return array("success" => true);
+		}
+
+		// Reads data in.
+		private static function ProcessState__ReadBodyData(&$state)
+		{
+			while ($state["sizeleft"] === false || $state["sizeleft"] > 0)
+			{
+				$data2 = @fread($state["fp"], ($state["sizeleft"] === false || $state["sizeleft"] > 65536 ? 65536 : $state["sizeleft"]));
+				if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
+				if ($data2 === "")
 				{
-					while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
-					{
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+					if (feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
+					if (self::StreamTimedOut($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 
-						$rawsize += strlen($data2);
-						$data .= $data2;
+					if ($state["async"])  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
+				}
+				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
-						if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-						if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-						else if ($debug)  $rawdata .= $data2;
+				$tempsize = strlen($data2);
+				$state["rawsize"] += $tempsize;
+				if ($state["sizeleft"] !== false)  $state["sizeleft"] -= $tempsize;
 
-						if (feof($fp))  break;
-					}
-					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-					$pos = strpos($data, "\n");
-					if ($pos === false)  $pos = strlen($data);
-					$header = rtrim(substr($data, 0, $pos));
-					$data = substr($data, $pos + 1);
-					$rawrecvheadersize += $pos + 1;
-					if ($header != "")
-					{
-						if ($lastheader != "" && (substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t"))  $headers[$lastheader][count($headers[$lastheader]) - 1] .= $header;
-						else
-						{
-							$pos = strpos($header, ":");
-							if ($pos === false)  $pos = strlen($header);
-							$lastheader = self::HeaderNameCleanup(substr($header, 0, $pos));
-							if (!isset($headers[$lastheader]))  $headers[$lastheader] = array();
-							$headers[$lastheader][] = ltrim(substr($header, $pos + 1));
-						}
-					}
-				} while ($header != "");
+				if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= self::GetDecodedBody($state["autodecode_ds"], $data2);
+				else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
 
-				if ($response["code"] != 100 && isset($options["read_headers_callback"]))
+				if (isset($state["options"]["recvratelimit"]))
 				{
-					if (!$options["read_headers_callback"]($response, $headers, $options["read_headers_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
+					$state["waituntil"] = self::ProcessRateLimit($state["rawsize"], $state["recvstart"], $state["options"]["recvratelimit"], $state["async"]);
+					if (microtime(true) < $state["waituntil"])  return array("success" => false, "error" => self::HTTPTranslate("Rate limit for non-blocking connection has not been reached."), "errorcode" => "no_data");
 				}
 
-				$body = "";
+				if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("rawrecv", $data2, &$state["options"]["debug_callback_opts"]));
+				else if ($state["debug"])  $state["rawdata"] .= $data2;
+			}
 
-				// Handle WebSocket among other things.
-				if ($response["code"] == 101)  break;
+			return array("success" => true);
+		}
 
-				// Determine if decoding the content is possible and necessary.
-				if ($autodecode && !isset($headers["Content-Encoding"]) || (strtolower($headers["Content-Encoding"][0]) != "gzip" && strtolower($headers["Content-Encoding"][0]) != "deflate"))  $autodecode = false;
-				if (!$autodecode)  $autodecode_ds = false;
-				else
+		// Writes data out.
+		private static function ProcessState__WriteData(&$state, $prefix)
+		{
+			if ($state[$prefix . "data"] !== "")
+			{
+				$result = @fwrite($state["fp"], $state[$prefix . "data"]);
+				if ($result === false || feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("A fwrite() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
+				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+
+				$data2 = substr($state[$prefix . "data"], 0, $result);
+				$state[$prefix . "data"] = (string)substr($state[$prefix . "data"], $result);
+
+				$state["result"]["rawsendsize"] += $result;
+				$state["result"]["rawsend" . $prefix . "headersize"] += $result;
+
+				if (isset($state["options"]["sendratelimit"]))
 				{
-					require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
-
-					// Since servers and browsers do everything wrong, ignore the encoding claim and attempt to auto-detect the encoding.
-					$autodecode_ds = new DeflateStream();
-					$autodecode_ds->Init("rb", -1, array("type" => "auto"));
+					$state["waituntil"] = self::ProcessRateLimit($state["result"]["rawsendsize"], $state["result"]["connected"], $state["options"]["sendratelimit"], $state["async"]);
+					if (microtime(true) < $state["waituntil"])  return array("success" => false, "error" => self::HTTPTranslate("Rate limit for non-blocking connection has not been reached."), "errorcode" => "no_data");
 				}
 
-				// Process the body.
-				if (isset($headers["Transfer-Encoding"]) && strtolower($headers["Transfer-Encoding"][0]) == "chunked")
+				if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("rawsend", $data2, &$state["options"]["debug_callback_opts"]));
+				else if ($state["debug"])  $state["result"]["rawsend"] .= $data2;
+			}
+
+			return array("success" => true);
+		}
+
+		public static function ProcessState(&$state)
+		{
+			if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+			if (microtime(true) < $state["waituntil"])  return array("success" => false, "error" => self::HTTPTranslate("Rate limit for non-blocking connection has not been reached."), "errorcode" => "no_data");
+
+			if ($state["type"] === "request")
+			{
+				while ($state["state"] !== "done")
 				{
-					do
+					switch ($state["state"])
 					{
-						// Calculate the next chunked size and ignore chunked extensions.
-						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
+						case "connecting":
 						{
-							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+							if (function_exists("stream_select"))
+							{
+								$readfp = NULL;
+								$writefp = array($state["fp"]);
+								$exceptfp = NULL;
+								$result = @stream_select($readfp, $writefp, $exceptfp, 0);
+								if ($result === false)  return array("success" => false, "error" => self::HTTPTranslate("A stream_select() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
-							$rawsize += strlen($data2);
-							$data .= $data2;
+								if (!count($writefp))  return array("success" => false, "error" => self::HTTPTranslate("Connection not established yet."), "errorcode" => "no_data");
+							}
 
-							if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-							if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-							else if ($debug)  $rawdata .= $data2;
+							// Handle peer certificate retrieval.
+							if (function_exists("stream_context_get_options"))
+							{
+								$contextopts = stream_context_get_options($state["fp"]);
+								if ($state["useproxy"])
+								{
+									if ($state["proxysecure"] && isset($state["options"]["proxysslopts"]) && is_array($state["options"]["proxysslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
+									{
+										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("proxypeercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), &$state["options"]["debug_callback_opts"]));
+									}
+								}
+								else
+								{
+									if ($state["secure"] && isset($state["options"]["sslopts"]) && is_array($state["options"]["sslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
+									{
+										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("peercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), &$state["options"]["debug_callback_opts"]));
+									}
+								}
+							}
 
-							if (feof($fp))  break;
-						}
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						$pos = strpos($data, "\n");
-						if ($pos === false)  $pos = strlen($data);
-						$line = trim(substr($data, 0, $pos));
-						$data = substr($data, $pos + 1);
-						$pos = strpos($line, ";");
-						if ($pos === false)  $pos = strlen($line);
-						$size = hexdec(substr($line, 0, $pos));
-						if ($size < 0)  $size = 0;
+							// Deal with failed connections that hang applications.
+							if (isset($state["options"]["streamtimeout"]) && $state["options"]["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($state["fp"], $state["options"]["streamtimeout"]);
 
-						// Retrieve content.
-						$size2 = $size;
-						$size3 = min(strlen($data), $size);
-						if ($size3 > 0)
-						{
-							$data2 = substr($data, 0, $size3);
-							$data = substr($data, $size3);
-							$size2 -= $size3;
+							$state["result"]["connected"] = microtime(true);
 
-							if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= self::GetDecodedBody($autodecode_ds, $data2);
-							else if (!$options["read_body_callback"]($response, self::GetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
-						}
-						while ($size2 > 0 && ($data2 = fread($fp, ($size2 > 65536 ? 65536 : $size2))) !== false)
-						{
-							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+							// Switch to the correct state.
+							if ($state["proxyconnect"])
+							{
+								$state["result"]["rawsendproxyheadersize"] = 0;
 
-							$tempsize = strlen($data2);
-							$rawsize += $tempsize;
-							$size2 -= $tempsize;
-
-							if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= self::GetDecodedBody($autodecode_ds, $data2);
-							else if (!$options["read_body_callback"]($response, self::GetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
-
-							if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-							if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-							else if ($debug)  $rawdata .= $data2;
-
-							if (feof($fp))  break;
-						}
-
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-
-						// Ignore one newline.
-						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
-						{
-							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-
-							$rawsize += strlen($data2);
-							$data .= $data2;
-
-							if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-							if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-							else if ($debug)  $rawdata .= $data2;
-
-							if (feof($fp))  break;
-						}
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						$pos = strpos($data, "\n");
-						if ($pos === false)  $pos = strlen($data);
-						$data = substr($data, $pos + 1);
-					} while ($size);
-
-					// Process additional headers.
-					$lastheader = "";
-					do
-					{
-						while (strpos($data, "\n") === false && ($data2 = fgets($fp, 116000)) !== false)
-						{
-							if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-
-							$rawsize += strlen($data2);
-							$data .= $data2;
-
-							if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-							if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-							else if ($debug)  $rawdata .= $data2;
-
-							if (feof($fp))  break;
-						}
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						$pos = strpos($data, "\n");
-						if ($pos === false)  $pos = strlen($data);
-						$header = rtrim(substr($data, 0, $pos));
-						$data = substr($data, $pos + 1);
-						$rawrecvheadersize += $pos + 1;
-						if ($header != "")
-						{
-							if ($lastheader != "" && (substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t"))  $headers[$lastheader][count($headers[$lastheader]) - 1] .= $header;
+								$state["state"] = "proxy_connect_send";
+							}
 							else
 							{
-								$pos = strpos($header, ":");
-								if ($pos === false)  $pos = strlen($header);
-								$lastheader = self::HeaderNameCleanup(substr($header, 0, $pos));
-								if (!isset($headers[$lastheader]))  $headers[$lastheader] = array();
-								$headers[$lastheader][] = ltrim(substr($header, $pos + 1));
+								$state["result"]["sendstart"] = microtime(true);
+
+								$state["state"] = "send_data";
 							}
+
+							break;
 						}
-					} while ($header != "");
+						case "proxy_connect_send":
+						{
+							// Send the HTTP CONNECT request to the proxy.
+							$result = self::ProcessState__WriteData($state, "proxy");
+							if (!$result["success"])  return $result;
 
-					if ($response["code"] != 100 && isset($options["read_headers_callback"]))
-					{
-						if (!$options["read_headers_callback"]($response, $headers, $options["read_headers_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
+							// Prepare the state for handling the response from the proxy server.
+							$options2 = array();
+							if (isset($state["options"]["async"]))  $options2["async"] = $state["options"]["async"];
+							if (isset($state["options"]["recvratelimit"]))  $options2["recvratelimit"] = $state["options"]["recvratelimit"];
+							if (isset($state["options"]["debug_callback"]))
+							{
+								$options2["debug_callback"] = $state["options"]["debug_callback"];
+								$options2["debug_callback_opts"] = $state["options"]["debug_callback_opts"];
+							}
+							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"]);
+
+							$state["state"] = "proxy_connect_response";
+
+							break;
+						}
+						case "proxy_connect_response":
+						{
+							// Recursively call this function to handle the proxy response.
+							$result = self::ProcessState($state["proxyresponse"]);
+							if (!$result["success"])  return $result;
+
+							$state["result"]["rawrecvsize"] += $result["rawrecvsize"];
+							$state["result"]["rawrecvheadersize"] += $result["rawrecvheadersize"];
+
+							if (substr($result["response"]["code"], 0, 1) != "2")  return array("success" => false, "error" => self::HTTPTranslate("Expected a 200 response from the CONNECT request.  Received:  %s.", $result["response"]["line"]), "info" => $result, "errorcode" => "proxy_connect_tunnel_failed");
+
+							// Proxy connect tunnel established.  Proceed normally.
+							$state["result"]["sendstart"] = microtime(true);
+
+							$state["state"] = "send_data";
+
+							break;
+						}
+						case "send_data":
+						{
+							// Send the queued data.
+							$result = self::ProcessState__WriteData($state, "");
+							if (!$result["success"])  return $result;
+
+							// Queue up more data.
+							if (isset($state["options"]["write_body_callback"]) && is_callable($state["options"]["write_body_callback"]))
+							{
+								if ($state["bodysize"] === false || $state["bodysize"] > 0)
+								{
+									$bodysize2 = $state["bodysize"];
+									$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
+									if (!$result || ($state["bodysize"] !== false && strlen($state["data"]) > $state["bodysize"]))  return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
+
+									if ($state["bodysize"] === false)
+									{
+										$state["data"] = dechex(strlen($state["data"])) . "\r\n" . $state["data"] . "\r\n";
+
+										// When $bodysize2 is set to true, it is the last chunk.
+										if ($bodysize2 === true)
+										{
+											$state["data"] .= "0\r\n\r\n";
+
+											// Allow the body callback function to append additional headers to the content to send.
+											// It is up to the callback function to correctly format the extra headers.
+											$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
+											if (!$result)  return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
+
+											$state["bodysize"] = 0;
+										}
+									}
+									else
+									{
+										$state["bodysize"] -= strlen($state["data"]);
+									}
+								}
+							}
+							else if (isset($state["options"]["files"]) && $state["bodysize"] > 0)
+							{
+								// Select the next file to upload.
+								if ($state["currentfile"] === false && count($state["options"]["files"]))
+								{
+									$state["currentfile"] = array_shift($state["options"]["files"]);
+
+									$name = self::HeaderValueCleanup($state["currentfile"]["name"]);
+									$name = str_replace("\"", "", $name);
+									$filename = self::FilenameSafe(self::ExtractFilename($state["currentfile"]["filename"]));
+									$type = self::HeaderValueCleanup($state["currentfile"]["type"]);
+
+									$state["data"] = "--" . $state["mime"] . "\r\n";
+									$state["data"] .= "Content-Disposition: form-data; name=\"" . $name . "\"; filename=\"" . $filename . "\"\r\n";
+									$state["data"] .= "Content-Type: " . $type . "\r\n";
+									$state["data"] .= "\r\n";
+
+									if (!isset($state["currentfile"]["datafile"]))
+									{
+										$state["data"] .= $state["currentfile"]["data"];
+										$state["data"] .= "\r\n";
+
+										$state["currentfile"] = false;
+									}
+									else
+									{
+										$state["currentfile"]["fp"] = @fopen($state["currentfile"]["datafile"], "rb");
+										if ($state["currentfile"]["fp"] === false)  return array("success" => false, "error" => self::HTTPTranslate("The file '%s' does not exist.", $state["currentfile"]["datafile"]), "errorcode" => "file_does_not_exist");
+									}
+								}
+
+								// Process the next chunk of file information.
+								if ($state["currentfile"] !== false && isset($state["currentfile"]["fp"]))
+								{
+									// Read/Write up to 65K at a time.
+									if ($state["currentfile"]["filesize"] >= 65536)
+									{
+										$data2 = fread($state["currentfile"]["fp"], 65536);
+										if ($data2 === false || strlen($data2) !== 65536)
+										{
+											fclose($state["currentfile"]["fp"]);
+
+											return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read");
+										}
+
+										$state["data"] .= $data2;
+
+										$state["currentfile"]["filesize"] -= 65536;
+									}
+									else
+									{
+										// Read in the rest.
+										if ($state["currentfile"]["filesize"] > 0)
+										{
+											$data2 = fread($fp2, $info["filesize"]);
+											if ($data2 === false || strlen($data2) != $state["currentfile"]["filesize"])
+											{
+												fclose($state["currentfile"]["fp"]);
+
+												return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read");
+											}
+
+											$state["data"] .= $data2;
+										}
+
+										$state["data"] .= "\r\n";
+
+										fclose($state["currentfile"]["fp"]);
+
+										$state["currentfile"] = false;
+									}
+								}
+
+								// If there is no more data, write out the closing MIME line.
+								if ($state["data"] === "")  $state["data"] = "--" . $state["mime"] . "--\r\n";
+
+								$state["bodysize"] -= strlen($state["data"]);
+							}
+							else if ($state["bodysize"] === false || $state["bodysize"] > 0)
+							{
+								return array("success" => false, "error" => self::HTTPTranslate("A weird internal HTTP error that should never, ever happen...just happened."), "errorcode" => "impossible");
+							}
+
+							// All done sending data to the server.
+							if ($state["data"] === "")  $state["state"] = "done";
+						}
 					}
 				}
-				else if (isset($headers["Content-Length"]))
+
+				// The request has been sent.  Change the state to a response state.
+				$state = self::InitResponseState($state["fp"], $state["debug"], $state["options"], $state["startts"], $state["timeout"], $state["result"]);
+
+				// Run one cycle.
+				return self::ProcessState($state);
+			}
+			else if ($state["type"] === "response")
+			{
+				while ($state["state"] !== "done")
 				{
-					$size = (int)$headers["Content-Length"][0];
-					$datasize = 0;
-					while ($datasize < $size && ($data2 = fread($fp, ($size > 65536 ? 65536 : $size))) !== false)
+					switch ($state["state"])
 					{
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+						case "response_line":
+						{
+							$result = self::ProcessState__ReadLine($state);
+							if (!$result["success"])  return $result;
 
-						$tempsize = strlen($data2);
-						$datasize += $tempsize;
-						$rawsize += $tempsize;
-						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= self::GetDecodedBody($autodecode_ds, $data2);
-						else if (!$options["read_body_callback"]($response, self::GetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+							// Parse the response line.
+							$pos = strpos($state["data"], "\n");
+							if ($pos === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve response line."), "errorcode" => "get_response_line");
+							$line = trim(substr($state["data"], 0, $pos));
+							$state["data"] = substr($state["data"], $pos + 1);
+							$state["rawrecvheadersize"] += $pos + 1;
+							$response = explode(" ", $line, 3);
 
-						if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-						if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-						else if ($debug)  $rawdata .= $data2;
+							$state["result"]["response"] = array(
+								"line" => $line,
+								"httpver" => strtoupper($response[0]),
+								"code" => $response[1],
+								"meaning" => $response[2]
+							);
 
-						if (feof($fp))  break;
+							$state["state"] = "headers";
+							$state["result"]["headers"] = array();
+							$state["lastheader"] = "";
+
+							break;
+						}
+						case "headers":
+						case "body_chunked_headers":
+						{
+							$result = self::ProcessState__ReadLine($state);
+							if (!$result["success"] && ($state["state"] === "headers" || ($result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected")))  return $result;
+
+							$pos = strpos($state["data"], "\n");
+							if ($pos === false)  $pos = strlen($state["data"]);
+							$header = rtrim(substr($state["data"], 0, $pos));
+							$state["data"] = substr($state["data"], $pos + 1);
+							$state["rawrecvheadersize"] += $pos + 1;
+							if ($header != "")
+							{
+								if ($state["lastheader"] != "" && (substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t"))  $state["result"]["headers"][$state["lastheader"]][count($state["result"]["headers"][$state["lastheader"]]) - 1] .= $header;
+								else
+								{
+									$pos = strpos($header, ":");
+									if ($pos === false)  $pos = strlen($header);
+									$state["lastheader"] = self::HeaderNameCleanup(substr($header, 0, $pos));
+									if (!isset($state["result"]["headers"][$state["lastheader"]]))  $state["result"]["headers"][$state["lastheader"]] = array();
+									$state["result"]["headers"][$state["lastheader"]][] = ltrim(substr($header, $pos + 1));
+								}
+							}
+							else
+							{
+								if ($state["result"]["response"]["code"] != 100 && isset($state["options"]["read_headers_callback"]) && is_callable($state["options"]["read_headers_callback"]))
+								{
+									if (!call_user_func_array($state["options"]["read_headers_callback"], array(&$state["result"]["response"], &$state["result"]["headers"], &$state["options"]["read_headers_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback");
+								}
+
+								// Additional headers (optional) are the last bit of data in a chunked response.
+								if ($state["state"] === "body_chunked_headers")  $state["state"] = "body_finalize";
+								else
+								{
+									$state["result"]["body"] = "";
+
+									// Handle 100 Continue below OR WebSocket among other things by letting the caller handle reading the body.
+									if ($state["result"]["response"]["code"] == 100 || $state["result"]["response"]["code"] == 101)  $state["state"] = "done";
+									else
+									{
+										// Determine if decoding the content is possible and necessary.
+										if ($state["autodecode"] && !isset($state["result"]["headers"]["Content-Encoding"]) || (strtolower($state["result"]["headers"]["Content-Encoding"][0]) != "gzip" && strtolower($state["result"]["headers"]["Content-Encoding"][0]) != "deflate"))  $state["autodecode"] = false;
+										if (!$state["autodecode"])  $state["autodecode_ds"] = false;
+										else
+										{
+											require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
+
+											// Since servers and browsers do everything wrong, ignore the encoding claim and attempt to auto-detect the encoding.
+											$state["autodecode_ds"] = new DeflateStream();
+											$state["autodecode_ds"]->Init("rb", -1, array("type" => "auto"));
+										}
+
+										// Use the appropriate state for handling the next bit of input.
+										if (isset($state["result"]["headers"]["Transfer-Encoding"]) && strtolower($state["result"]["headers"]["Transfer-Encoding"][0]) == "chunked")
+										{
+											$state["state"] = "body_chunked_size";
+										}
+										else
+										{
+											$state["sizeleft"] = (isset($state["result"]["headers"]["Content-Length"]) ? (int)$state["result"]["headers"]["Content-Length"][0] : false);
+											$state["state"] = "body_content";
+										}
+									}
+								}
+							}
+
+							break;
+						}
+						case "body_chunked_size":
+						{
+							$result = self::ProcessState__ReadLine($state);
+							if (!$result["success"])  return $result;
+
+							$pos = strpos($state["data"], "\n");
+							if ($pos === false)  $pos = strlen($state["data"]);
+							$line = trim(substr($state["data"], 0, $pos));
+							$state["data"] = substr($state["data"], $pos + 1);
+							$pos = strpos($line, ";");
+							if ($pos === false)  $pos = strlen($line);
+							$size = hexdec(substr($line, 0, $pos));
+							if ($size < 0)  $size = 0;
+
+							// Retrieve content.
+							$size2 = $size;
+							$size3 = min(strlen($state["data"]), $size);
+							if ($size3 > 0)
+							{
+								$data2 = substr($state["data"], 0, $size3);
+								$state["data"] = substr($state["data"], $size3);
+								$size2 -= $size3;
+
+								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= self::GetDecodedBody($state["autodecode_ds"], $data2);
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+							}
+
+							$state["chunksize"] = $size;
+							$state["sizeleft"] = $size2;
+							$state["state"] = "body_chunked_data";
+
+							break;
+						}
+						case "body_chunked_data":
+						{
+							$result = self::ProcessState__ReadBodyData($state);
+							if (!$result["success"])  return $result;
+
+							$state["state"] = "body_chunked_skipline";
+
+							break;
+						}
+						case "body_chunked_skipline":
+						{
+							$result = self::ProcessState__ReadLine($state);
+							if (!$result["success"])  return $result;
+
+							// Ignore one newline.
+							$pos = strpos($state["data"], "\n");
+							if ($pos === false)  $pos = strlen($state["data"]);
+							$state["data"] = substr($state["data"], $pos + 1);
+
+							if ($state["chunksize"] > 0)  $state["state"] = "body_chunked_size";
+							else
+							{
+								$state["lastheader"] = "";
+								$state["state"] = "body_chunked_headers";
+							}
+
+							break;
+						}
+						case "body_content":
+						{
+							$result = self::ProcessState__ReadBodyData($state);
+							if (!$result["success"] && (($state["sizeleft"] !== false && $state["sizeleft"] > 0) || ($state["sizeleft"] === false && $result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected" && $result["errorcode"] !== "stream_timeout_exceeded")))  return $result;
+
+							$state["state"] = "body_finalize";
+
+							break;
+						}
+						case "body_finalize":
+						{
+							if ($state["autodecode_ds"] !== false)
+							{
+								$state["autodecode_ds"]->Finalize();
+								$data2 = $state["autodecode_ds"]->Read();
+
+								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= $data2;
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], $data2, &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+							}
+
+							$state["state"] = "done";
+
+							break;
+						}
 					}
-					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-				}
-				else if ($response["code"] != 100)
-				{
-					while (($data2 = fread($fp, 65536)) !== false)
+
+					// Handle HTTP 100 Continue status codes.
+					if ($state["state"] === "done" && $state["result"]["response"]["code"] == 100)
 					{
-						if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-						if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-
-						$tempsize = strlen($data2);
-						$rawsize += $tempsize;
-						if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= self::GetDecodedBody($autodecode_ds, $data2);
-						else if (!$options["read_body_callback"]($response, self::GetDecodedBody($autodecode_ds, $data2), $options["read_body_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
-
-						if (isset($options["recvratelimit"]))  self::ProcessRateLimit($rawsize, $recvstart, $options["recvratelimit"]);
-						if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $data2, $options["debug_callback_opts"]);
-						else if ($debug)  $rawdata .= $data2;
-
-						if (feof($fp))  break;
+						$state["autodecode"] = (!isset($state["options"]["auto_decode"]) || $state["options"]["auto_decode"]);
+						$state["state"] = "response";
+						$state["result"]["response"] = false;
+						$state["result"]["headers"] = false;
+						$state["result"]["body"] = false;
 					}
-					if (self::StreamTimedOut($fp))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
 				}
 
-				if ($autodecode_ds !== false)
-				{
-					$autodecode_ds->Finalize();
-					$data2 = $autodecode_ds->Read();
+				if ($state["debug"])  $state["result"]["rawrecv"] .= $state["rawdata"];
+				$state["result"]["rawrecvsize"] += $state["rawsize"];
+				$state["result"]["rawrecvheadersize"] += $state["rawrecvheadersize"];
+				$state["result"]["endts"] = microtime(true);
 
-					if ($response["code"] == 100 || !isset($options["read_body_callback"]))  $body .= $data2;
-					else if (!$options["read_body_callback"]($response, $data2, $options["read_body_callback_opts"]))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
-				}
-			} while ($response["code"] == 100);
-
-			return array("success" => true, "rawrecv" => $rawdata, "rawrecvsize" => $rawsize, "rawrecvheadersize" => $rawrecvheadersize, "recvstart" => $recvstart, "response" => $response, "headers" => $headers, "body" => $body);
+				return $state["result"];
+			}
+			else
+			{
+				return array("success" => false, "error" => self::HTTPTranslate("Invalid 'type' in state tracker."), "errorcode" => "invalid_type");
+			}
 		}
 
 		public static function RetrieveWebpage($url, $options = array())
@@ -736,6 +1027,9 @@
 
 			// Process the proxy URL (if specified).
 			$useproxy = (isset($options["proxyurl"]) && trim($options["proxyurl"]) != "");
+			$proxysecure = false;
+			$proxyconnect = false;
+			$proxydata = "";
 			if ($useproxy)
 			{
 				$proxyurl = trim($options["proxyurl"]);
@@ -769,14 +1063,14 @@
 						}
 					}
 					$proxydata .= "\r\n";
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawproxyheaders", $proxydata, $options["debug_callback_opts"]);
+					if (isset($options["debug_callback"]) && is_callable($options["debug_callback"]))  call_user_func_array($options["debug_callback"], array("rawproxyheaders", $proxydata, &$options["debug_callback_opts"]));
 				}
 			}
 
 			// Process the method.
 			if (!isset($options["method"]))
 			{
-				if (isset($options["write_body_callback"]) || isset($options["body"]))  $options["method"] = "PUT";
+				if ((isset($options["write_body_callback"]) && is_callable($options["write_body_callback"])) || isset($options["body"]))  $options["method"] = "PUT";
 				else if (isset($options["postvars"]) || (isset($options["files"]) && count($options["files"])))  $options["method"] = "POST";
 				else  $options["method"] = "GET";
 			}
@@ -809,10 +1103,18 @@
 				if ($name != "Content-Type" && $name != "Content-Length" && $name != "Connection" && $name != "Host")  $data .= $name . ": " . $val . "\r\n";
 			}
 
+			if (isset($options["files"]) && !count($options["files"]))  unset($options["files"]);
+
 			// Process the body.
+			$mime = "";
 			$body = "";
 			$bodysize = 0;
-			if (isset($options["write_body_callback"]))  $options["write_body_callback"]($body, $bodysize, $options["write_body_callback_opts"]);
+			if (isset($options["write_body_callback"]) && is_callable($options["write_body_callback"]))
+			{
+				if (isset($options["headers"]["Content-Type"]))  $data .= "Content-Type: " . $options["headers"]["Content-Type"] . "\r\n";
+
+				call_user_func_array($options["write_body_callback"], array(&$body, &$bodysize, &$options["write_body_callback_opts"]));
+			}
 			else if (isset($options["body"]))
 			{
 				if (isset($options["headers"]["Content-Type"]))  $data .= "Content-Type: " . $options["headers"]["Content-Type"] . "\r\n";
@@ -888,18 +1190,19 @@
 
 				$bodysize = strlen($body);
 			}
-			if ($bodysize < strlen($body))  $bodysize = strlen($body);
+			if (($bodysize === false && strlen($body) > 0) || ($bodysize !== false && $bodysize < strlen($body)))  $bodysize = strlen($body);
 
 			// Finalize the headers.
-			if ($bodysize || $body != "" || $options["method"] == "POST")  $data .= "Content-Length: " . $bodysize . "\r\n";
+			if ($bodysize === false)  $data .= "Transfer-Encoding: chunked\r\n";
+			else if ($bodysize > 0 || $body != "" || $options["method"] == "POST")  $data .= "Content-Length: " . $bodysize . "\r\n";
 			$data .= "\r\n";
-			if (isset($options["debug_callback"]))  $options["debug_callback"]("rawheaders", $data, $options["debug_callback_opts"]);
+			if (isset($options["debug_callback"]) && is_callable($options["debug_callback"]))  call_user_func_array($options["debug_callback"], array("rawheaders", $data, &$options["debug_callback_opts"]));
 
 			// Finalize the initial data to be sent.
 			$data .= $body;
-			$bodysize -= strlen($body);
+			if ($bodysize !== false)  $bodysize -= strlen($body);
 			$body = "";
-			$result = array("success" => true, "rawsendsize" => 0, "rawrecvsize" => 0, "rawrecvheadersize" => 0, "startts" => $startts);
+			$result = array("success" => true, "rawsendsize" => 0, "rawsendheadersize" => 0, "rawrecvsize" => 0, "rawrecvheadersize" => 0, "startts" => $startts);
 			$debug = (isset($options["debug"]) && $options["debug"]);
 			if ($debug)
 			{
@@ -907,12 +1210,7 @@
 				$result["rawrecv"] = "";
 			}
 
-			if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-			{
-				fclose($fp);
-
-				return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-			}
+			if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
 			// Connect to the target server.
 			$errornum = 0;
@@ -920,12 +1218,13 @@
 			if (isset($options["fp"]) && is_resource($options["fp"]))
 			{
 				$fp = $options["fp"];
+				unset($options["fp"]);
 
-				if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, 1);
+				if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, (isset($options["async"]) && $options["async"] ? 0 : 1));
 
-				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
-
-				$result["connected"] = microtime(true);
+				$useproxy = false;
+				$proxyconnect = false;
+				$proxydata = "";
 			}
 			else if ($useproxy)
 			{
@@ -941,64 +1240,10 @@
 						self::ProcessSSLOptions($options, "proxysslopts", $host);
 						foreach ($options["proxysslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
-					$fp = @stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], STREAM_CLIENT_CONNECT, $context);
-
-					$contextopts = stream_context_get_options($context);
-					if ($proxysecure && isset($options["proxysslopts"]) && is_array($options["proxysslopts"]) && ($protocol == "ssl" || $protocol == "tls") && isset($contextopts["ssl"]["peer_certificate"]))
-					{
-						if (isset($options["debug_callback"]))  $options["debug_callback"]("proxypeercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), $options["debug_callback_opts"]);
-					}
+					$fp = @stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], STREAM_CLIENT_CONNECT | (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : 0), $context);
 				}
+
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($proxysecure ? $proxyprotocol . "://" : "") . $proxyhost . ":" . $proxyport), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "proxy_connect");
-
-				// Deal with failed connections that hang the application.
-				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
-
-				$result["connected"] = microtime(true);
-
-				if ($proxyconnect)
-				{
-					// Send the HTTP CONNECT request.
-					fwrite($fp, $proxydata);
-					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-					{
-						fclose($fp);
-
-						return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-					}
-					$result["rawsendsize"] += strlen($proxydata);
-					$result["rawsendproxyheadersize"] = strlen($proxydata);
-					if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $proxydata, $options["debug_callback_opts"]);
-					else if ($debug)  $result["rawsend"] .= $proxydata;
-
-					// Get the response - success is a 2xx code.
-					$options2 = array();
-					if (isset($options["recvratelimit"]))  $options2["recvratelimit"] = $options["recvratelimit"];
-					if (isset($options["debug_callback"]))
-					{
-						$options2["debug_callback"] = $options["debug_callback"];
-						$options2["debug_callback_opts"] = $options["debug_callback_opts"];
-					}
-					$info = self::GetResponse($fp, $debug, $options2, $startts, $timeout);
-					if (!$info["success"])
-					{
-						fclose($fp);
-
-						return $info;
-					}
-					if (substr($info["response"]["code"], 0, 1) != "2")
-					{
-						fclose($fp);
-
-						return array("success" => false, "error" => self::HTTPTranslate("Expected a 200 response from the CONNECT request.  Received:  %s.", $info["response"]["line"]), "info" => $info, "errorcode" => "proxy_connect_tunnel");
-					}
-
-					$result["rawrecvsize"] += $info["rawrecvsize"];
-					$result["rawrecvheadersize"] += $info["rawrecvheadersize"];
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawrecv", $info["rawrecv"], $options["debug_callback_opts"]);
-					else if ($debug)  $result["rawrecv"] .= $info["rawrecv"];
-				}
 			}
 			else
 			{
@@ -1009,213 +1254,47 @@
 				else
 				{
 					$context = @stream_context_create();
-					if ($secure && isset($options["sslopts"]) && is_array($options["sslopts"]) && ($protocol == "ssl" || $protocol == "tls"))
+					if ($secure && isset($options["sslopts"]) && is_array($options["sslopts"]))
 					{
 						self::ProcessSSLOptions($options, "sslopts", $host);
 						foreach ($options["sslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
-					$fp = @stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], STREAM_CLIENT_CONNECT, $context);
-
-					$contextopts = stream_context_get_options($context);
-					if ($secure && isset($options["sslopts"]) && is_array($options["sslopts"]) && ($protocol == "ssl" || $protocol == "tls") && isset($contextopts["ssl"]["peer_certificate"]))
-					{
-						if (isset($options["debug_callback"]))  $options["debug_callback"]("peercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), $options["debug_callback_opts"]);
-					}
+					$fp = @stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], STREAM_CLIENT_CONNECT | (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : 0), $context);
 				}
+
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($secure ? $protocol . "://" : "") . $host . ":" . $port), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "connect_failed");
-
-				// Deal with failed connections that hang the application.
-				if (isset($options["streamtimeout"]) && $options["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($fp, $options["streamtimeout"]);
-
-				$result["connected"] = microtime(true);
 			}
 
-			// Send the initial data.
-			$result["sendstart"] = microtime(true);
-			fwrite($fp, $data);
-			if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-			{
-				fclose($fp);
+			// Initialize the connection request state array.
+			$state = array(
+				"fp" => $fp,
+				"type" => "request",
+				"async" => (isset($options["async"]) ? $options["async"] : false),
+				"debug" => $debug,
+				"startts" => $startts,
+				"timeout" => $timeout,
+				"waituntil" => -1.0,
+				"mime" => $mime,
+				"data" => $data,
+				"bodysize" => $bodysize,
+				"secure" => $secure,
+				"useproxy" => $useproxy,
+				"proxysecure" => $proxysecure,
+				"proxyconnect" => $proxyconnect,
+				"proxydata" => $proxydata,
+				"currentfile" => false,
 
-				return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-			}
-			$result["rawsendsize"] += strlen($data);
-			$result["rawsendheadersize"] = strlen($data);
-			if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-			if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $data, $options["debug_callback_opts"]);
-			else if ($debug)  $result["rawsend"] .= $data;
+				"state" => "connecting",
 
-			// Send extra data.
-			if (isset($options["write_body_callback"]))
-			{
-				while ($bodysize > 0)
-				{
-					$bodysize2 = $bodysize;
-					if (!$options["write_body_callback"]($body, $bodysize2, $options["write_body_callback_opts"]) || strlen($body) > $bodysize)
-					{
-						fclose($fp);
-						return array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback");
-					}
+				"options" => $options,
+				"result" => $result
+			);
 
-					fwrite($fp, $body);
-					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-					{
-						fclose($fp);
+			// Return the state for async calls.  Caller must call ProcessState().
+			if ($state["async"])  return array("success" => true, "state" => $state);
 
-						return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-					}
-					$result["rawsendsize"] += strlen($body);
-					if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $body, $options["debug_callback_opts"]);
-					else if ($debug)  $result["rawsend"] .= $body;
-
-					$bodysize -= strlen($body);
-					$body = "";
-				}
-
-				unset($options["write_body_callback"]);
-				unset($options["write_body_callback_opts"]);
-			}
-			else if (isset($options["files"]) && count($options["files"]))
-			{
-				foreach ($options["files"] as $info)
-				{
-					$name = self::HeaderValueCleanup($info["name"]);
-					$name = str_replace("\"", "", $name);
-					$filename = self::FilenameSafe(self::ExtractFilename($info["filename"]));
-					$type = self::HeaderValueCleanup($info["type"]);
-
-					$body = "--" . $mime . "\r\n";
-					$body .= "Content-Disposition: form-data; name=\"" . $name . "\"; filename=\"" . $filename . "\"\r\n";
-					$body .= "Content-Type: " . $type . "\r\n";
-					$body .= "\r\n";
-
-					fwrite($fp, $body);
-					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-					{
-						fclose($fp);
-
-						return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-					}
-					$result["rawsendsize"] += strlen($body);
-					if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $body, $options["debug_callback_opts"]);
-					else if ($debug)  $result["rawsend"] .= $body;
-
-					if (isset($info["datafile"]))
-					{
-						$fp2 = @fopen($info["datafile"], "rb");
-						if ($fp2 === false)
-						{
-							fclose($fp);
-							return array("success" => false, "error" => self::HTTPTranslate("The file '%s' does not exist.", $info["datafile"]), "errorcode" => "file_open");
-						}
-
-						// Read/Write 65K at a time.
-						while ($info["filesize"] >= 65536)
-						{
-							$body = fread($fp2, 65536);
-							if ($body === false || strlen($body) != 65536)
-							{
-								fclose($fp2);
-								fclose($fp);
-								return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $info["datafile"]), "errorcode" => "file_read");
-							}
-
-							fwrite($fp, $body);
-							if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-							{
-								fclose($fp);
-
-								return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-							}
-							$result["rawsendsize"] += strlen($body);
-							if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-							if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $body, $options["debug_callback_opts"]);
-							else if ($debug)  $result["rawsend"] .= $body;
-
-							$info["filesize"] -= 65536;
-						}
-
-						if ($info["filesize"] > 0)
-						{
-							$body = fread($fp2, $info["filesize"]);
-							if ($body === false || strlen($body) != $info["filesize"])
-							{
-								fclose($fp2);
-								fclose($fp);
-								return array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $info["datafile"]), "errorcode" => "file_read");
-							}
-						}
-						else
-						{
-							$body = "";
-						}
-
-						fclose($fp2);
-					}
-					else
-					{
-						$body = $info["data"];
-					}
-
-					$body .= "\r\n";
-					fwrite($fp, $body);
-					if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-					{
-						fclose($fp);
-
-						return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-					}
-					$result["rawsendsize"] += strlen($body);
-					if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-					if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $body, $options["debug_callback_opts"]);
-					else if ($debug)  $result["rawsend"] .= $body;
-				}
-
-				$body = "--" . $mime . "--\r\n";
-				fwrite($fp, $body);
-				if ($timeout !== false && self::GetTimeLeft($startts, $timeout) == 0)
-				{
-					fclose($fp);
-
-					return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
-				}
-				$result["rawsendsize"] += strlen($body);
-				if (isset($options["sendratelimit"]))  self::ProcessRateLimit($result["rawsendsize"], $result["sendstart"], $options["sendratelimit"]);
-				if (isset($options["debug_callback"]))  $options["debug_callback"]("rawsend", $body, $options["debug_callback_opts"]);
-				else if ($debug)  $result["rawsend"] .= $body;
-
-				unset($options["files"]);
-			}
-			else if ($bodysize > 0)
-			{
-				fclose($fp);
-				return array("success" => false, "error" => self::HTTPTranslate("A weird internal HTTP error that should never, ever happen...just happened."), "errorcode" => "impossible");
-			}
-
-			// Get the response.
-			$info = self::GetResponse($fp, $debug, $options, $startts, $timeout);
-			if ($options["headers"]["Connection"] == "close")  fclose($fp);
-			else
-			{
-				$info["fp"] = $fp;
-				$result["fp"] = $fp;
-			}
-			$info["rawsendsize"] = $result["rawsendsize"];
-			if (!$info["success"])  return $info;
-
-			$result["rawrecvsize"] += $info["rawrecvsize"];
-			$result["rawrecvheadersize"] += $info["rawrecvheadersize"];
-			if ($debug)  $result["rawrecv"] .= $info["rawrecv"];
-			$result["recvstart"] = $info["recvstart"];
-
-			$result["response"] = $info["response"];
-			$result["headers"] = $info["headers"];
-			$result["body"] = (string)$info["body"];
-			$result["endts"] = microtime(true);
-
-			return $result;
+			// Run through all of the valid states and return the result.
+			return self::ProcessState($state);
 		}
 	}
 ?>
