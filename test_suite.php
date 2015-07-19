@@ -1,6 +1,6 @@
 <?php
 	// Test suite.
-	// (C) 2014 CubicleSoft.  All Rights Reserved.
+	// (C) 2015 CubicleSoft.  All Rights Reserved.
 
 	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
 	{
@@ -17,6 +17,7 @@
 	require_once $rootpath . "/support/deflate_stream.php";
 	require_once $rootpath . "/support/simple_html_dom.php";
 	require_once $rootpath . "/support/tag_filter.php";
+	require_once $rootpath . "/support/multi_async_helper.php";
 
 	function TestHTMLTagFilter($stack, &$content, $open, $tagname, &$attrs, $options)
 	{
@@ -138,4 +139,59 @@
 			echo "\t" . HTTP::ConvertRelativeToAbsoluteURL($result["url"], $row->href) . "\n";
 		}
 	}
+
+	// Test asynchronous access.
+	$urls = array(
+		"http://www.barebonescms.com/",
+		"http://www.cubiclesoft.com/",
+	);
+
+	// Build the queue.
+	$helper = new MultiAsyncHelper();
+	$pages = array();
+	foreach ($urls as $url)
+	{
+		$pages[$url] = new WebBrowser();
+		$pages[$url]->ProcessAsync($helper, $url, NULL, $url);
+	}
+
+	// Mix in another file handle type for fun.
+	$fp = fopen(__FILE__, "rb");
+	stream_set_blocking($fp, 0);
+	$helper->Set("__fp", $fp, "MultiAsyncHelper::ReadOnly");
+
+	// Run the main loop.
+	do
+	{
+		$result = $helper->Wait(2);
+
+		if ($result["success"])
+		{
+			if (isset($result["read"]["__fp"]))
+			{
+				$data = fread($fp, 2048);
+				if ($data === false || feof($fp))
+				{
+					echo "[PASS] File read in successfully.\n";
+
+					fclose($fp);
+					$helper->Remove("__fp");
+				}
+			}
+
+			foreach ($result["removed"] as $key => $info)
+			{
+				if ($key === "__fp")  continue;
+
+				if (!$info["result"]["success"])  echo "[FAIL] Error retrieving URL (" . $key . ").  " . $info["result"]["error"] . "\n";
+				else if ($info["result"]["response"]["code"] != 200)  echo "[FAIL] Error retrieving URL (" . $key . ").  Server returned:  " . $info["result"]["response"]["line"] . "\n";
+				else
+				{
+					echo "[PASS] The expected response was returned (" . $key . ").\n";
+				}
+
+				unset($pages[$key]);
+			}
+		}
+	} while ($result["success"] && $result["numleft"] > 0);
 ?>

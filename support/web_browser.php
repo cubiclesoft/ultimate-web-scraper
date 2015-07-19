@@ -413,6 +413,88 @@
 			return $result;
 		}
 
+		// Implements the correct MultiAsyncHelper responses for WebBrowser instances.
+		public function ProcessAsync__Handler($mode, &$data, $key, &$info)
+		{
+			switch ($mode)
+			{
+				case "init":
+				{
+					$info["result"] = $this->Process($info["url"], $info["profile"], $info["tempoptions"]);
+					if (!$info["result"]["success"])
+					{
+						$info["keep"] = false;
+
+						if (is_callable($info["callback"]))  call_user_func_array($info["callback"], array($key, $info["url"], $info["result"]));
+					}
+					else
+					{
+						$info["state"] = $info["result"]["state"];
+
+						// Move to the live queue.
+						$data = true;
+					}
+
+					break;
+				}
+				case "update":
+				case "read":
+				case "write":
+				{
+					if ($info["keep"])
+					{
+						$info["result"] = $this->ProcessState($info["state"]);
+						if ($info["result"]["success"] || $info["result"]["errorcode"] !== "no_data")  $info["keep"] = false;
+
+						if (is_callable($info["callback"]))  call_user_func_array($info["callback"], array($key, $info["url"], $info["result"]));
+
+						if ($mode === "update")
+						{
+							if (!$info["keep"])
+							{
+								if (isset($info["state"]) && $info["state"]["httpstate"] !== false)  @fclose($info["state"]["httpstate"]["fp"]);
+								unset($info["state"]);
+							}
+
+							$data = $info["keep"];
+						}
+					}
+
+					break;
+				}
+				case "readfps":
+				{
+					if ($info["state"]["httpstate"] !== false && $info["state"]["httpstate"]["type"] === "response")  $data[$key] = $info["state"]["httpstate"]["fp"];
+
+					break;
+				}
+				case "writefps":
+				{
+					if ($info["state"]["httpstate"] !== false && $info["state"]["httpstate"]["type"] === "request")  $data[$key] = $info["state"]["httpstate"]["fp"];
+
+					break;
+				}
+			}
+		}
+
+		public function ProcessAsync($helper, $key, $callback, $url, $profile = "auto", $tempoptions = array())
+		{
+			$tempoptions["async"] = true;
+
+			$info = array(
+				"keep" => true,
+				"callback" => $callback,
+				"url" => $url,
+				"profile" => $profile,
+				"tempoptions" => $tempoptions,
+				"result" => false
+			);
+
+			$helper->Set($key, $info, array($this, "ProcessAsync__Handler"));
+
+			return array("success" => true);
+		}
+
 		public function ExtractForms($baseurl, $data, $hint = false)
 		{
 			$result = array();

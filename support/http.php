@@ -426,7 +426,7 @@
 			return $info["timed_out"];
 		}
 
-		private static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result)
+		private static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close)
 		{
 			$state = array(
 				"fp" => $fp,
@@ -445,7 +445,8 @@
 				"state" => "response_line",
 
 				"options" => $options,
-				"result" => $result
+				"result" => $result,
+				"close" => $close
 			);
 
 			$state["result"]["recvstart"] = microtime(true);
@@ -628,7 +629,7 @@
 								$options2["debug_callback"] = $state["options"]["debug_callback"];
 								$options2["debug_callback_opts"] = $state["options"]["debug_callback_opts"];
 							}
-							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"]);
+							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], $state["close"]);
 
 							$state["state"] = "proxy_connect_response";
 
@@ -782,7 +783,7 @@
 				}
 
 				// The request has been sent.  Change the state to a response state.
-				$state = self::InitResponseState($state["fp"], $state["debug"], $state["options"], $state["startts"], $state["timeout"], $state["result"]);
+				$state = self::InitResponseState($state["fp"], $state["debug"], $state["options"], $state["startts"], $state["timeout"], $state["result"], $state["close"]);
 
 				// Run one cycle.
 				return self::ProcessState($state);
