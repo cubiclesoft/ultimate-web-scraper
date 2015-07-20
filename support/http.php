@@ -549,21 +549,26 @@
 			return array("success" => true);
 		}
 
+		public static function ForceClose(&$state)
+		{
+			if ($state["fp"] !== false)
+			{
+				@fclose($state["fp"]);
+				$state["fp"] = false;
+			}
+
+			if ($state["currentfile"] !== false)
+			{
+				if ($state["currentfile"]["fp"] !== false)  @fclose($state["currentfile"]["fp"]);
+				$state["currentfile"] = false;
+			}
+		}
+
 		private static function CleanupErrorState(&$state, $result)
 		{
 			if (!$result["success"] && $result["errorcode"] !== "no_data")
 			{
-				if ($state["fp"] !== false)
-				{
-					@fclose($state["fp"]);
-					$state["fp"] = false;
-				}
-
-				if ($state["currentfile"] !== false)
-				{
-					if ($state["currentfile"]["fp"] !== false)  @fclose($state["currentfile"]["fp"]);
-					$state["currentfile"] = false;
-				}
+				self::ForceClose($state);
 
 				$state["error"] = $result;
 			}

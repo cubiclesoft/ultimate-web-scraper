@@ -50,10 +50,36 @@
 			}
 		}
 
+		private function InternalDetach($key, $cleanup)
+		{
+			if (isset($this->queuedobjs[$key]))
+			{
+				call_user_func_array($info["callback"], array("cleanup", &$cleanup, $key, &$this->queuedobjs[$key]["obj"]));
+				$result = $this->queuedobjs[$key]["obj"];
+				unset($this->queuedobjs[$key]);
+			}
+			else if (isset($this->objs[$key]))
+			{
+				call_user_func_array($info["callback"], array("cleanup", &$cleanup, $key, &$this->objs[$key]["obj"]));
+				$result = $this->queuedobjs[$key]["obj"];
+				unset($this->objs[$key]);
+			}
+			else
+			{
+				$result = false;
+			}
+
+			return $result;
+		}
+
+		public function Detach($key)
+		{
+			return $this->InternalDetach($key, false);
+		}
+
 		public function Remove($key)
 		{
-			unset($this->queuedobjs[$key]);
-			unset($this->objs[$key]);
+			return $this->InternalDetach($key, true);
 		}
 
 		// A few default functions for direct file/socket handles.
@@ -78,6 +104,12 @@
 				case "readfps":
 				{
 					$data[$key] = $fp;
+
+					break;
+				}
+				case "cleanup":
+				{
+					if ($data === true)  @fclose($fp);
 
 					break;
 				}
@@ -108,6 +140,12 @@
 
 					break;
 				}
+				case "cleanup":
+				{
+					if ($data === true)  @fclose($fp);
+
+					break;
+				}
 			}
 		}
 
@@ -135,6 +173,12 @@
 
 					break;
 				}
+				case "cleanup":
+				{
+					if ($data === true)  @fclose($fp);
+
+					break;
+				}
 			}
 		}
 
@@ -153,15 +197,8 @@
 				$keep = false;
 				call_user_func_array($info["callback"], array("init", &$keep, $key, &$info["obj"]));
 
-				if (!$keep)
-				{
-					$result2["removed"][$key] = $info["obj"];
-					unset($this->objs[$key]);
-				}
-				else
-				{
-					$this->objs[$key] = $info;
-				}
+				if (!$keep)  $result2["removed"][$key] = $this->Remove($key);
+				else  $this->objs[$key] = $info;
 			}
 
 			// Walk the objects looking for read and write handles.
@@ -173,11 +210,7 @@
 				$keep = false;
 				call_user_func_array($info["callback"], array("update", &$keep, $key, &$info["obj"]));
 
-				if (!$keep)
-				{
-					$result2["removed"][$key] = $info["obj"];
-					unset($this->objs[$key]);
-				}
+				if (!$keep)  $result2["removed"][$key] = $this->Remove($key);
 				else
 				{
 					call_user_func_array($info["callback"], array("readfps", &$readfps, $key, &$info["obj"]));
@@ -202,7 +235,7 @@
 						$readfps3 = array();
 						foreach ($readfps as $key => $fp)
 						{
-							if (!isset($this->objs[$key]))
+							if (!isset($readfps2[$key]) || $readfps2[$key] !== $fp)
 							{
 								foreach ($readfps2 as $key2 => $fp2)
 								{
@@ -226,9 +259,9 @@
 						$writefps3 = array();
 						foreach ($writefps as $key => $fp)
 						{
-							if (!isset($this->objs[$key]))
+							if (!isset($writefps2[$key]) || $writefps2[$key] !== $fp)
 							{
-								foreach ($readfps2 as $key2 => $fp2)
+								foreach ($writefps2 as $key2 => $fp2)
 								{
 									if ($fp === $fp2)  $key = $key2;
 								}

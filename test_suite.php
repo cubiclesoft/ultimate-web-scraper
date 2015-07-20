@@ -161,37 +161,44 @@
 	$helper->Set("__fp", $fp, "MultiAsyncHelper::ReadOnly");
 
 	// Run the main loop.
-	do
+	$result = $helper->Wait(2);
+	while ($result["success"])
 	{
-		$result = $helper->Wait(2);
-
-		if ($result["success"])
+		// Process the file handle if it is ready for reading.
+		if (isset($result["read"]["__fp"]))
 		{
-			if (isset($result["read"]["__fp"]))
+			$fp = $result["read"]["__fp"];
+			$data = fread($fp, 2048);
+			if ($data === false || feof($fp))
 			{
-				$data = fread($fp, 2048);
-				if ($data === false || feof($fp))
-				{
-					echo "[PASS] File read in successfully.\n";
+				echo "[PASS] File read in successfully.\n";
 
-					fclose($fp);
-					$helper->Remove("__fp");
-				}
-			}
-
-			foreach ($result["removed"] as $key => $info)
-			{
-				if ($key === "__fp")  continue;
-
-				if (!$info["result"]["success"])  echo "[FAIL] Error retrieving URL (" . $key . ").  " . $info["result"]["error"] . "\n";
-				else if ($info["result"]["response"]["code"] != 200)  echo "[FAIL] Error retrieving URL (" . $key . ").  Server returned:  " . $info["result"]["response"]["line"] . "\n";
-				else
-				{
-					echo "[PASS] The expected response was returned (" . $key . ").\n";
-				}
-
-				unset($pages[$key]);
+				$helper->Remove("__fp");
 			}
 		}
-	} while ($result["success"] && $result["numleft"] > 0);
+
+		// Process everything else.
+		foreach ($result["removed"] as $key => $info)
+		{
+			if ($key === "__fp")  continue;
+
+			if (!$info["result"]["success"])  echo "[FAIL] Error retrieving URL (" . $key . ").  " . $info["result"]["error"] . "\n";
+			else if ($info["result"]["response"]["code"] != 200)  echo "[FAIL] Error retrieving URL (" . $key . ").  Server returned:  " . $info["result"]["response"]["line"] . "\n";
+			else
+			{
+				echo "[PASS] The expected response was returned (" . $key . ").\n";
+			}
+
+			unset($pages[$key]);
+		}
+
+
+		// Break out of the loop when nothing is left.
+		if ($result["numleft"] < 1)  break;
+
+		$result = $helper->Wait(2);
+	}
+
+	// An error occurred.
+	if (!$result["success"])  echo "[FAIL] Error in Wait().  " . $result["error"] . "\n";
 ?>

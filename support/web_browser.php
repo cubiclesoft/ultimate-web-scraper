@@ -420,19 +420,23 @@
 			{
 				case "init":
 				{
-					$info["result"] = $this->Process($info["url"], $info["profile"], $info["tempoptions"]);
-					if (!$info["result"]["success"])
-					{
-						$info["keep"] = false;
-
-						if (is_callable($info["callback"]))  call_user_func_array($info["callback"], array($key, $info["url"], $info["result"]));
-					}
+					if ($info["init"])  $data = $info["keep"];
 					else
 					{
-						$info["state"] = $info["result"]["state"];
+						$info["result"] = $this->Process($info["url"], $info["profile"], $info["tempoptions"]);
+						if (!$info["result"]["success"])
+						{
+							$info["keep"] = false;
 
-						// Move to the live queue.
-						$data = true;
+							if (is_callable($info["callback"]))  call_user_func_array($info["callback"], array($key, $info["url"], $info["result"]));
+						}
+						else
+						{
+							$info["state"] = $info["result"]["state"];
+
+							// Move to the live queue.
+							$data = true;
+						}
 					}
 
 					break;
@@ -470,6 +474,18 @@
 
 					break;
 				}
+				case "cleanup":
+				{
+					// When true, caller is removing.  Otherwise, detaching from the queue.
+					if ($data === true)
+					{
+						if ($info["state"]["httpstate"] !== false)  HTTP::ForceClose($info["state"]["httpstate"]);
+
+						$info["keep"] = false;
+					}
+
+					break;
+				}
 			}
 		}
 
@@ -478,6 +494,7 @@
 			$tempoptions["async"] = true;
 
 			$info = array(
+				"init" => false,
 				"keep" => true,
 				"callback" => $callback,
 				"url" => $url,
