@@ -54,14 +54,14 @@
 		{
 			if (isset($this->queuedobjs[$key]))
 			{
-				call_user_func_array($info["callback"], array("cleanup", &$cleanup, $key, &$this->queuedobjs[$key]["obj"]));
+				call_user_func_array($this->queuedobjs[$key]["callback"], array("cleanup", &$cleanup, $key, &$this->queuedobjs[$key]["obj"]));
 				$result = $this->queuedobjs[$key]["obj"];
 				unset($this->queuedobjs[$key]);
 			}
 			else if (isset($this->objs[$key]))
 			{
-				call_user_func_array($info["callback"], array("cleanup", &$cleanup, $key, &$this->objs[$key]["obj"]));
-				$result = $this->queuedobjs[$key]["obj"];
+				call_user_func_array($this->objs[$key]["callback"], array("cleanup", &$cleanup, $key, &$this->objs[$key]["obj"]));
+				$result = $this->objs[$key]["obj"];
 				unset($this->objs[$key]);
 			}
 			else

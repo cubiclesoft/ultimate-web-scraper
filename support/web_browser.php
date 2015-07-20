@@ -452,12 +452,7 @@
 
 						if (is_callable($info["callback"]))  call_user_func_array($info["callback"], array($key, $info["url"], $info["result"]));
 
-						if ($mode === "update")
-						{
-							if (!$info["keep"])  unset($info["state"]);
-
-							$data = $info["keep"];
-						}
+						if ($mode === "update")  $data = $info["keep"];
 					}
 
 					break;
@@ -479,7 +474,12 @@
 					// When true, caller is removing.  Otherwise, detaching from the queue.
 					if ($data === true)
 					{
-						if ($info["state"]["httpstate"] !== false)  HTTP::ForceClose($info["state"]["httpstate"]);
+						if (isset($info["state"]))
+						{
+							if ($info["state"]["httpstate"] !== false)  HTTP::ForceClose($info["state"]["httpstate"]);
+
+							unset($info["state"]);
+						}
 
 						$info["keep"] = false;
 					}

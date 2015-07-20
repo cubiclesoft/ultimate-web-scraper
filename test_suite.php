@@ -168,7 +168,7 @@
 		if (isset($result["read"]["__fp"]))
 		{
 			$fp = $result["read"]["__fp"];
-			$data = fread($fp, 2048);
+			$data = fread($fp, 500);
 			if ($data === false || feof($fp))
 			{
 				echo "[PASS] File read in successfully.\n";
