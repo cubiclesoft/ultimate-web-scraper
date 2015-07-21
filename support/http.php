@@ -557,7 +557,7 @@
 				$state["fp"] = false;
 			}
 
-			if ($state["currentfile"] !== false)
+			if (isset($state["currentfile"]) && $state["currentfile"] !== false)
 			{
 				if ($state["currentfile"]["fp"] !== false)  @fclose($state["currentfile"]["fp"]);
 				$state["currentfile"] = false;
@@ -796,7 +796,26 @@
 							}
 
 							// All done sending data to the server.
-							if ($state["data"] === "")  $state["state"] = "done";
+							if ($state["data"] === "")  $state["state"] = "receive_switch";
+
+							break;
+						}
+						case "receive_switch":
+						{
+							if (function_exists("stream_select"))
+							{
+								$readfp = array($state["fp"]);
+								$writefp = NULL;
+								$exceptfp = NULL;
+								$result = @stream_select($readfp, $writefp, $exceptfp, 0);
+								if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_select() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed"));
+
+								if (!count($readfp))  return array("success" => false, "error" => self::HTTPTranslate("Connection not fully established yet."), "errorcode" => "no_data");
+							}
+
+							$state["state"] = "done";
+
+							break;
 						}
 					}
 				}
@@ -1245,8 +1264,6 @@
 				$fp = $options["fp"];
 				unset($options["fp"]);
 
-				if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, (isset($options["async"]) && $options["async"] ? 0 : 1));
-
 				$useproxy = false;
 				$proxyconnect = false;
 				$proxydata = "";
@@ -1289,6 +1306,8 @@
 
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($secure ? $protocol . "://" : "") . $host . ":" . $port), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "connect_failed");
 			}
+
+			if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, (isset($options["async"]) && $options["async"] ? 0 : 1));
 
 			// Initialize the connection request state array.
 			$state = array(
