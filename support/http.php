@@ -591,7 +591,7 @@
 					{
 						case "connecting":
 						{
-							if (function_exists("stream_select"))
+							if (function_exists("stream_select") && $state["async"])
 							{
 								$readfp = NULL;
 								$writefp = array($state["fp"]);
@@ -802,7 +802,7 @@
 						}
 						case "receive_switch":
 						{
-							if (function_exists("stream_select"))
+							if (function_exists("stream_select") && $state["async"])
 							{
 								$readfp = array($state["fp"]);
 								$writefp = NULL;
