@@ -1277,6 +1277,7 @@
 				else
 				{
 					$context = @stream_context_create();
+					if (isset($options["source_ip"]))  $context["socket"] = array("bindto" => $options["source_ip"]);
 					if ($proxysecure && isset($options["proxysslopts"]) && is_array($options["proxysslopts"]))
 					{
 						self::ProcessSSLOptions($options, "proxysslopts", $host);
@@ -1296,6 +1297,7 @@
 				else
 				{
 					$context = @stream_context_create();
+					if (isset($options["source_ip"]))  $context["socket"] = array("bindto" => $options["source_ip"]);
 					if ($secure && isset($options["sslopts"]) && is_array($options["sslopts"]))
 					{
 						self::ProcessSSLOptions($options, "sslopts", $host);
