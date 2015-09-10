@@ -38,6 +38,8 @@
 				"allow_namespaces" => true,
 				"charset" => "UTF-8",
 				"output_mode" => "html",
+				"lowercase_tags" => true,
+				"lowercase_attrs" => true,
 			);
 
 			return $result;
@@ -52,6 +54,8 @@
 			if (!isset($options["charset"]))  $options["charset"] = "UTF-8";
 			if (!isset($options["void_tags"]))  $options["void_tags"] = array();
 			if (!isset($options["output_mode"]))  $options["output_mode"] = "html";
+			if (!isset($options["lowercase_tags"]))  $options["lowercase_tags"] = true;
+			if (!isset($options["lowercase_attrs"]))  $options["lowercase_attrs"] = true;
 
 			$stack = array();
 			$result = "";
@@ -147,7 +151,8 @@
 						$val = ord($content{$cx});
 						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($options["allow_namespaces"] && $val == $colon)))  break;
 					}
-					$tagname = strtolower(rtrim(substr($content, $startpos, $cx - $startpos), ":"));
+					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
+					if ($options["lowercase_tags"])  $tagname = strtolower($tagname);
 
 					// Process attributes/properties until a closing condition is encountered.
 					$state = "key";
@@ -175,7 +180,8 @@
 									if ($pos === false)  $content .= $content{$x};
 									else
 									{
-										$keyname = strtolower(substr($content, $x + 1, $pos - $x - 1));
+										$keyname = substr($content, $x + 1, $pos - $x - 1);
+										if ($options["lowercase_attrs"])  $keyname = strtolower($keyname);
 										if (preg_match('/<\s*\/\s*' . $tagname . '\s*>/is', $keyname) || (count($stack) && preg_match('/<\s*\/\s*' . $stack[0]["tag_name"] . '\s*>/is', $keyname)))
 										{
 											// Found a matching close tag within the key name.  Bail out.
@@ -208,7 +214,8 @@
 											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && $val >= $zero && $val <= $nine) || ($cx > $x && $val == $hyphen) || ($options["allow_namespaces"] && $val == $colon)))  break;
 										}
 
-										$keyname = strtolower(rtrim(substr($content, $x, $cx - $x), "-:"));
+										$keyname = rtrim(substr($content, $x, $cx - $x), "-:");
+										if ($options["lowercase_attrs"])  $keyname = strtolower($keyname);
 
 										$state = "equals";
 
