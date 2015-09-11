@@ -152,7 +152,8 @@
 						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($options["allow_namespaces"] && $val == $colon)))  break;
 					}
 					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
-					if ($options["lowercase_tags"])  $tagname = strtolower($tagname);
+					$outtagname = ($options["lowercase_tags"] ? strtolower($tagname) : $tagname);
+					$tagname = strtolower($tagname);
 
 					// Process attributes/properties until a closing condition is encountered.
 					$state = "key";
@@ -182,7 +183,7 @@
 									{
 										$keyname = substr($content, $x + 1, $pos - $x - 1);
 										if ($options["lowercase_attrs"])  $keyname = strtolower($keyname);
-										if (preg_match('/<\s*\/\s*' . $tagname . '\s*>/is', $keyname) || (count($stack) && preg_match('/<\s*\/\s*' . $stack[0]["tag_name"] . '\s*>/is', $keyname)))
+										if (preg_match('/<\s*\/\s*' . $tagname . '\s*>/is', strtolower($keyname)) || (count($stack) && preg_match('/<\s*\/\s*' . $stack[0]["tag_name"] . '\s*>/is', strtolower($keyname))))
 										{
 											// Found a matching close tag within the key name.  Bail out.
 											$state = "exit";
@@ -191,7 +192,7 @@
 										}
 										else
 										{
-											$keyname = preg_replace('/[^a-z' . ($options["allow_namespaces"] ? ":" : "") . ']/', "", $keyname);
+											$keyname = preg_replace('/[^' . ($options["lowercase_attrs"] ? "" : "A-Z") . 'a-z' . ($options["allow_namespaces"] ? ":" : "") . ']/', "", $keyname);
 											if ($options["allow_namespaces"])  $keyname = rtrim($keyname, ":");
 											$cx = $pos + 1;
 
@@ -453,7 +454,7 @@
 						if ($funcresult["keep_tag"] && $open)
 						{
 							$opentag = $funcresult["pre_tag"];
-							$opentag .= "<" . $prefix . $tagname;
+							$opentag .= "<" . $prefix . $outtagname;
 							foreach ($attrs as $key => $val)
 							{
 								$opentag .= " " . $key;
