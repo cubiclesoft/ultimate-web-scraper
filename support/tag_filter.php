@@ -467,7 +467,7 @@
 
 							if (!isset($options["void_tags"][$tagname]) && $prefix === "")
 							{
-								array_unshift($stack, array("tag_name" => $tagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
 							}
 							else
@@ -480,7 +480,7 @@
 						{
 							if ($open)
 							{
-								array_unshift($stack, array("tag_name" => $tagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
 							}
 							else
@@ -502,7 +502,7 @@
 									{
 										$info = array_shift($stack);
 										$result = $info["result"] . ($tagname !== $info["tag_name"] || $funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-										if ($info["close_tag"] && ($tagname !== $info["tag_name"] || $funcresult["keep_tag"]))  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+										if ($info["close_tag"] && ($tagname !== $info["tag_name"] || $funcresult["keep_tag"]))  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
 									} while ($tagname !== $info["tag_name"]);
 								}
 							}
