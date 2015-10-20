@@ -2,50 +2,16 @@
 	// CubicleSoft PHP Tag Filter class.  Can repair broken HTML.
 	// (C) 2015 CubicleSoft.  All Rights Reserved.
 
-	class TagFilter
+	class TagFilterStream
 	{
-		public static function GetHTMLOptions()
-		{
-			$result = array(
-				"void_tags" => array(
-					"area" => true,
-					"base" => true,
-					"bgsound" => true,
-					"br" => true,
-					"col" => true,
-					"embed" => true,
-					"hr" => true,
-					"img" => true,
-					"input" => true,
-					"keygen" => true,
-					"link" => true,
-					"meta" => true,
-					"param" => true,
-					"source" => true,
-					"track" => true,
-					"wbr" => true
-				),
-				"process_attrs" => array(
-					"class" => "classes",
-					"href" => "uri",
-					"src" => "uri",
-					"dynsrc" => "uri",
-					"lowsrc" => "uri",
-					"background" => "uri",
-				),
-				"remove_attr_newlines" => true,
-				"remove_comments" => true,
-				"allow_namespaces" => true,
-				"charset" => "UTF-8",
-				"output_mode" => "html",
-				"lowercase_tags" => true,
-				"lowercase_attrs" => true,
-			);
+		protected $lastcontent, $final, $options, $stack;
 
-			return $result;
+		public function __construct($options = array())
+		{
+			$this->Init($options);
 		}
 
-		public static function Run($content, $options = array())
+		public function Init($options = array())
 		{
 			if (!isset($options["remove_attr_newlines"]))  $options["remove_attr_newlines"] = true;
 			if (!isset($options["remove_comments"]))  $options["remove_comments"] = true;
@@ -57,7 +23,16 @@
 			if (!isset($options["lowercase_tags"]))  $options["lowercase_tags"] = true;
 			if (!isset($options["lowercase_attrs"]))  $options["lowercase_attrs"] = true;
 
-			$stack = array();
+			$this->lastcontent = "";
+			$this->final = false;
+			$this->options = $options;
+			$this->stack = array();
+		}
+
+		public function Process($content)
+		{
+			if ($this->lastcontent !== "")  $content = $this->lastcontent . $content;
+
 			$result = "";
 			$tag = false;
 			$a = ord("A");
@@ -76,6 +51,8 @@
 			{
 				if ($tag)
 				{
+					$firstcx = $cx;
+
 					// First character is '<'.  Extract all non-alpha chars.
 					$prefix = "";
 					$startpos = $cx + 1;
@@ -108,7 +85,7 @@
 								$pos = strpos($content, "!--", $cx);
 								$pos2 = strpos($content, "-->", $pos + 3);
 								if ($pos2 === false)  $pos2 = $cy;
-								if (!$options["remove_comments"])  $result .= "<!-- " . htmlspecialchars(substr($content, $pos + 3, $pos2)) . " -->";
+								if (!$this->options["remove_comments"])  $result .= "<!-- " . htmlspecialchars(substr($content, $pos + 3, $pos2)) . " -->";
 								$cx = $pos2 + 3;
 
 								$tag = false;
@@ -149,10 +126,10 @@
 					for (; $cx < $cy; $cx++)
 					{
 						$val = ord($content{$cx});
-						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($options["allow_namespaces"] && $val == $colon)))  break;
+						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 					}
 					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
-					$outtagname = ($options["lowercase_tags"] ? strtolower($tagname) : $tagname);
+					$outtagname = ($this->options["lowercase_tags"] ? strtolower($tagname) : $tagname);
 					$tagname = strtolower($tagname);
 
 					// Process attributes/properties until a closing condition is encountered.
@@ -182,8 +159,8 @@
 									else
 									{
 										$keyname = substr($content, $x + 1, $pos - $x - 1);
-										if ($options["lowercase_attrs"])  $keyname = strtolower($keyname);
-										if (preg_match('/<\s*\/\s*' . $tagname . '\s*>/is', strtolower($keyname)) || (count($stack) && preg_match('/<\s*\/\s*' . $stack[0]["tag_name"] . '\s*>/is', strtolower($keyname))))
+										if ($this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
+										if (preg_match('/<\s*\/\s*' . $tagname . '\s*>/is', strtolower($keyname)) || (count($this->stack) && preg_match('/<\s*\/\s*' . $this->stack[0]["tag_name"] . '\s*>/is', strtolower($keyname))))
 										{
 											// Found a matching close tag within the key name.  Bail out.
 											$state = "exit";
@@ -192,8 +169,8 @@
 										}
 										else
 										{
-											$keyname = preg_replace('/[^' . ($options["lowercase_attrs"] ? "" : "A-Z") . 'a-z' . ($options["allow_namespaces"] ? ":" : "") . ']/', "", $keyname);
-											if ($options["allow_namespaces"])  $keyname = rtrim($keyname, ":");
+											$keyname = preg_replace('/[^' . ($this->options["lowercase_attrs"] ? "" : "A-Z") . 'a-z' . ($this->options["allow_namespaces"] ? ":" : "") . ']/', "", $keyname);
+											if ($this->options["allow_namespaces"])  $keyname = rtrim($keyname, ":");
 											$cx = $pos + 1;
 
 											$state = "equals";
@@ -212,11 +189,11 @@
 										for (; $cx < $cy; $cx++)
 										{
 											$val = ord($content{$cx});
-											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && $val >= $zero && $val <= $nine) || ($cx > $x && $val == $hyphen) || ($options["allow_namespaces"] && $val == $colon)))  break;
+											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && $val >= $zero && $val <= $nine) || ($cx > $x && $val == $hyphen) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 										}
 
 										$keyname = rtrim(substr($content, $x, $cx - $x), "-:");
-										if ($options["lowercase_attrs"])  $keyname = strtolower($keyname);
+										if ($this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
 
 										$state = "equals";
 
@@ -324,7 +301,7 @@
 
 							if ($state === "key")
 							{
-								$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, $options["charset"]);
+								$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, $this->options["charset"]);
 
 								// Decode remaining entities.
 								$value2 = "";
@@ -407,11 +384,11 @@
 								}
 								$value = $value2;
 
-								if ($options["remove_attr_newlines"])  $value = str_replace(array("\r\n", "\r", "\n"), " ", $value);
+								if ($this->options["remove_attr_newlines"])  $value = str_replace(array("\r\n", "\r", "\n"), " ", $value);
 
-								if (isset($options["process_attrs"][$keyname]))
+								if (isset($this->options["process_attrs"][$keyname]))
 								{
-									$type = $options["process_attrs"][$keyname];
+									$type = $this->options["process_attrs"][$keyname];
 									if ($type === "classes")
 									{
 										$classes = explode(" ", $value);
@@ -434,6 +411,14 @@
 						}
 					} while ($cx < $cy && $state !== "exit");
 
+					// Break out of the loop if the end of the stream has been reached but not finalized and most likely in the middle of a tag.
+					if ($cx >= $cy && !$this->final)
+					{
+						$this->lastcontent = substr($content, $firstcx);
+
+						break;
+					}
+
 					unset($attrs[""]);
 
 					if ($cx < $cy && $content{$cx} === ">")  $cx++;
@@ -441,7 +426,7 @@
 					if ($prefix === "!" && $tagname === "doctype")  $tagname = "DOCTYPE";
 
 					// Let a callback handle any necessary changes.
-					if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, &$result, $open, $prefix . $tagname, &$attrs, $options));
+					if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, $open, $prefix . $tagname, &$attrs, $this->options));
 					else  $funcresult = array();
 
 					if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
@@ -462,12 +447,12 @@
 								if (is_array($val))  $val = implode(" ", $val);
 								if (is_string($val))  $opentag .= "=\"" . htmlspecialchars($val) . "\"";
 							}
-							if (isset($options["void_tags"][$tagname]) && $options["output_mode"] === "xml")  $opentag .= " /";
+							if (isset($this->options["void_tags"][$tagname]) && $this->options["output_mode"] === "xml")  $opentag .= " /";
 							$opentag .= ">";
 
-							if (!isset($options["void_tags"][$tagname]) && $prefix === "")
+							if (!isset($this->options["void_tags"][$tagname]) && $prefix === "")
 							{
-								array_unshift($stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($this->stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
 							}
 							else
@@ -476,17 +461,17 @@
 								$result .= $funcresult["post_tag"];
 							}
 						}
-						else if (!isset($options["void_tags"][$tagname]))
+						else if (!isset($this->options["void_tags"][$tagname]))
 						{
 							if ($open)
 							{
-								array_unshift($stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($this->stack, array("tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
 							}
 							else
 							{
 								$found = false;
-								foreach ($stack as $info)
+								foreach ($this->stack as $info)
 								{
 									if ($tagname === $info["tag_name"])
 									{
@@ -500,7 +485,7 @@
 								{
 									do
 									{
-										$info = array_shift($stack);
+										$info = array_shift($this->stack);
 										$result = $info["result"] . ($tagname !== $info["tag_name"] || $funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
 										if ($info["close_tag"] && ($tagname !== $info["tag_name"] || $funcresult["keep_tag"]))  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
 									} while ($tagname !== $info["tag_name"]);
@@ -516,7 +501,7 @@
 //var_dump($attrs);
 //
 //echo "Tag stack:\n";
-//var_dump($stack);
+//var_dump($this->stack);
 //
 //echo "\n\n";
 //echo $content . "\n";
@@ -543,24 +528,103 @@
 				}
 			}
 
-			while (count($stack))
+			if ($this->final)
 			{
-				// Let a callback handle any necessary changes.
-				$attrs = array();
-				if (isset($options["tag_callback"]) && is_callable($options["tag_callback"]))  $funcresult = call_user_func_array($options["tag_callback"], array($stack, &$result, false, "/" . $stack[0]["tag_name"], &$attrs, $options));
-				else  $funcresult = array();
+				while (count($this->stack))
+				{
+					// Let a callback handle any necessary changes.
+					$attrs = array();
+					if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
+					else  $funcresult = array();
 
-				if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+					if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
 
-				$info = array_shift($stack);
+					$info = array_shift($this->stack);
 
-				$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-				if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+					$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
+					if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+				}
 			}
+
+			return $result;
+		}
+
+		public function Finalize()
+		{
+			$this->final = true;
+		}
+
+		protected static function UTF8Chr($num)
+		{
+			if ($num <= 0x7F)  $result = chr($num);
+			else if ($num <= 0x7FF)  $result = chr(0xC0 | (($num & 0x7C0) >> 6)) . chr(0x80 | ($num & 0x3F));
+			else if ($num <= 0xFFFF)  $result = chr(0xE0 | (($num & 0xF000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
+			else if ($num <= 0x1FFFFF)  $result = chr(0xF0 | (($num & 0x1C0000) >> 6)) . chr(0x80 | (($num & 0x3F000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
+			else  $result = "";
+
+			return $result;
+		}
+	}
+
+	class TagFilter
+	{
+		public static function GetHTMLOptions()
+		{
+			$result = array(
+				"void_tags" => array(
+					"area" => true,
+					"base" => true,
+					"bgsound" => true,
+					"br" => true,
+					"col" => true,
+					"embed" => true,
+					"hr" => true,
+					"img" => true,
+					"input" => true,
+					"keygen" => true,
+					"link" => true,
+					"meta" => true,
+					"param" => true,
+					"source" => true,
+					"track" => true,
+					"wbr" => true
+				),
+				"process_attrs" => array(
+					"class" => "classes",
+					"href" => "uri",
+					"src" => "uri",
+					"dynsrc" => "uri",
+					"lowsrc" => "uri",
+					"background" => "uri",
+				),
+				"remove_attr_newlines" => true,
+				"remove_comments" => true,
+				"allow_namespaces" => true,
+				"charset" => "UTF-8",
+				"output_mode" => "html",
+				"lowercase_tags" => true,
+				"lowercase_attrs" => true,
+			);
+
+			return $result;
+		}
+
+		public static function Run($content, $options = array())
+		{
+			$tfs = new TagFilterStream($options);
+			$tfs->Finalize();
+			$result = $tfs->Process($content);
 
 			// Clean up output.
 			$result = trim($result);
-			$result = str_replace("\r\n", "\n", $result);
+			$result = self::CleanupResults($result);
+
+			return $result;
+		}
+
+		public static function CleanupResults($content)
+		{
+			$result = str_replace("\r\n", "\n", $content);
 			$result = str_replace("\r", "\n", $result);
 			while (strpos($result, "\n\n\n") !== false)  $result = str_replace("\n\n\n", "\n\n", $result);
 
@@ -595,17 +659,6 @@
 			}
 
 			return false;
-		}
-
-		protected static function UTF8Chr($num)
-		{
-			if ($num <= 0x7F)  $result = chr($num);
-			else if ($num <= 0x7FF)  $result = chr(0xC0 | (($num & 0x7C0) >> 6)) . chr(0x80 | ($num & 0x3F));
-			else if ($num <= 0xFFFF)  $result = chr(0xE0 | (($num & 0xF000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
-			else if ($num <= 0x1FFFFF)  $result = chr(0xF0 | (($num & 0x1C0000) >> 6)) . chr(0x80 | (($num & 0x3F000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
-			else  $result = "";
-
-			return $result;
 		}
 	}
 ?>
