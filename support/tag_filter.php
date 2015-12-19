@@ -19,6 +19,7 @@
 			if (!isset($options["process_attrs"]))  $options["process_attrs"] = array();
 			if (!isset($options["charset"]))  $options["charset"] = "UTF-8";
 			if (!isset($options["void_tags"]))  $options["void_tags"] = array();
+			if (!isset($options["pre_close_tags"]))  $options["pre_close_tags"] = array();
 			if (!isset($options["output_mode"]))  $options["output_mode"] = "html";
 			if (!isset($options["lowercase_tags"]))  $options["lowercase_tags"] = true;
 			if (!isset($options["lowercase_attrs"]))  $options["lowercase_attrs"] = true;
@@ -131,6 +132,50 @@
 					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
 					$outtagname = ($this->options["lowercase_tags"] ? strtolower($tagname) : $tagname);
 					$tagname = strtolower($tagname);
+
+					// Close open tags in the stack that match the set of tags to look for to close.
+					if ($open && isset($this->options["pre_close_tags"][$tagname]))
+					{
+						// Find matches.
+						$info2 = $this->options["pre_close_tags"][$tagname];
+						$limit = (isset($info2["_limit"]) ? $info2["_limit"] : array());
+						if (is_string($limit))  $limit = array($limit => true);
+
+						// Unwind the stack.
+						do
+						{
+							$found = false;
+							foreach ($this->stack as $info)
+							{
+								if (isset($info2[$info["tag_name"]]))
+								{
+									$found = true;
+
+									break;
+								}
+
+								if (isset($limit[$info["tag_name"]]))  break;
+							}
+
+							if ($found)
+							{
+								do
+								{
+									// Let a callback handle any necessary changes.
+									$attrs = array();
+									if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
+									else  $funcresult = array();
+
+									if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+
+									$info = array_shift($this->stack);
+
+									$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
+									if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+								} while (!isset($info2[$info["tag_name"]]));
+							}
+						} while ($found);
+					}
 
 					// Process attributes/properties until a closing condition is encountered.
 					$state = "key";
@@ -425,17 +470,20 @@
 
 					if ($prefix === "!" && $tagname === "doctype")  $tagname = "DOCTYPE";
 
-					// Let a callback handle any necessary changes.
-					if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, $open, $prefix . $tagname, &$attrs, $this->options));
-					else  $funcresult = array();
-
-					if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
-					if (!isset($funcresult["keep_interior"]))  $funcresult["keep_interior"] = true;
-					if (!isset($funcresult["pre_tag"]))  $funcresult["pre_tag"] = "";
-					if (!isset($funcresult["post_tag"]))  $funcresult["post_tag"] = "";
-
 					if ($tagname != "")
 					{
+						if ($open)
+						{
+							// Let a callback handle any necessary changes.
+							if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, $open, $prefix . $tagname, &$attrs, $this->options));
+							else  $funcresult = array();
+
+							if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+							if (!isset($funcresult["keep_interior"]))  $funcresult["keep_interior"] = true;
+							if (!isset($funcresult["pre_tag"]))  $funcresult["pre_tag"] = "";
+							if (!isset($funcresult["post_tag"]))  $funcresult["post_tag"] = "";
+						}
+
 						if ($funcresult["keep_tag"] && $open)
 						{
 							$opentag = $funcresult["pre_tag"];
@@ -485,9 +533,17 @@
 								{
 									do
 									{
+										// Let a callback handle any necessary changes.
+										$attrs = array();
+										if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
+										else  $funcresult = array();
+
+										if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+
 										$info = array_shift($this->stack);
-										$result = $info["result"] . ($tagname !== $info["tag_name"] || $funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-										if ($info["close_tag"] && ($tagname !== $info["tag_name"] || $funcresult["keep_tag"]))  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
+
+										$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
+										if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
 									} while ($tagname !== $info["tag_name"]);
 								}
 							}
@@ -583,11 +639,62 @@
 					"input" => true,
 					"keygen" => true,
 					"link" => true,
+					"menuitem" => true,
 					"meta" => true,
 					"param" => true,
 					"source" => true,
 					"track" => true,
 					"wbr" => true
+				),
+				// Stored as a map for open tag elements.
+				// For example, '"address" => array("p" => true)' means:  When an open 'address' tag is encountered,
+				// look for an open 'p' tag anywhere (no '_limit') in the tag stack.  Apply a closing '</p>' tag for all matches.
+				//
+				// If '_limit' is defined as a string or an array, then stack walking stops as soon as one of the specified tags is encountered.
+				"pre_close_tags" => array(
+					"body" => array("body" => true, "head" => true),
+
+					"address" => array("p" => true),
+					"article" => array("p" => true),
+					"aside" => array("p" => true),
+					"blockquote" => array("p" => true),
+					"div" => array("p" => true),
+					"dl" => array("p" => true),
+					"fieldset" => array("p" => true),
+					"footer" => array("p" => true),
+					"form" => array("p" => true),
+					"h1" => array("p" => true),
+					"h2" => array("p" => true),
+					"h3" => array("p" => true),
+					"h4" => array("p" => true),
+					"h5" => array("p" => true),
+					"h6" => array("p" => true),
+					"header" => array("p" => true),
+					"hr" => array("p" => true),
+					"menu" => array("p" => true),
+					"nav" => array("p" => true),
+					"ol" => array("p" => true),
+					"pre" => array("p" => true),
+					"section" => array("p" => true),
+					"table" => array("p" => true),
+					"ul" => array("p" => true),
+					"p" => array("p" => true),
+
+					"tbody" => array("_limit" => "table", "thead" => true, "tr" => true, "th" => true, "td" => true),
+					"tr" => array("_limit" => "table", "tr" => true, "th" => true, "td" => true),
+					"th" => array("_limit" => "table", "th" => true, "td" => true),
+					"td" => array("_limit" => "table", "th" => true, "td" => true),
+					"tfoot" => array("_limit" => "table", "thead" => true, "tbody" => true, "tr" => true, "th" => true, "td" => true),
+
+					"optgroup" => array("optgroup" => true, "option" => true),
+					"option" => array("option" => true),
+
+					"dd" => array("_limit" => "dl", "dd" => true, "dt" => true),
+					"dt" => array("_limit" => "dl", "dd" => true, "dt" => true),
+
+					"colgroup" => array("colgroup" => true),
+
+					"li" => array("_limit" => array("ul" => true, "ol" => true, "menu" => true, "dir" => true), "li" => true),
 				),
 				"process_attrs" => array(
 					"class" => "classes",
