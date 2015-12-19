@@ -571,16 +571,21 @@
 					$pos = strpos($content, "<", $cx);
 					if ($pos === false)
 					{
-						$result .= str_replace(">", "&gt;", substr($content, $cx));
+						$content2 = str_replace(">", "&gt;", substr($content, $cx));
 						$cx = $cy;
 					}
 					else
 					{
-						$result .= str_replace(">", "&gt;", substr($content, $cx, $pos - $cx));
+						$content2 = str_replace(">", "&gt;", substr($content, $cx, $pos - $cx));
 						$cx = $pos;
 
 						$tag = true;
 					}
+
+					// Let a callback handle any necessary changes.
+					if (isset($this->options["content_callback"]) && is_callable($this->options["content_callback"]))  $funcresult = call_user_func_array($this->options["content_callback"], array($this->stack, $result, &$content2, $this->options));
+
+					$result .= $content2;
 				}
 			}
 
