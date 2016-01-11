@@ -455,13 +455,13 @@
 				}
 				case "readfps":
 				{
-					if ($info["state"]["httpstate"] !== false && $info["state"]["httpstate"]["type"] === "response")  $data[$key] = $info["state"]["httpstate"]["fp"];
+					if ($info["state"]["httpstate"] !== false && HTTP::WantRead($info["state"]["httpstate"]))  $data[$key] = $info["state"]["httpstate"]["fp"];
 
 					break;
 				}
 				case "writefps":
 				{
-					if ($info["state"]["httpstate"] !== false && $info["state"]["httpstate"]["type"] === "request")  $data[$key] = $info["state"]["httpstate"]["fp"];
+					if ($info["state"]["httpstate"] !== false && HTTP::WantWrite($info["state"]["httpstate"]))  $data[$key] = $info["state"]["httpstate"]["fp"];
 
 					break;
 				}

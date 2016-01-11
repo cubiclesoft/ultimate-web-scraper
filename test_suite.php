@@ -186,7 +186,7 @@
 			else if ($info["result"]["response"]["code"] != 200)  echo "[FAIL] Error retrieving URL (" . $key . ").  Server returned:  " . $info["result"]["response"]["line"] . "\n";
 			else
 			{
-				echo "[PASS] The expected response was returned (" . $key . ").\n";
+				echo "[PASS] The expected response was returned (" . $key . ").  " . strlen($info["result"]["body"]) . " bytes returned.\n";
 			}
 
 			unset($pages[$key]);
