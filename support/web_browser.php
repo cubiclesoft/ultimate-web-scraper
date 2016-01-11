@@ -127,6 +127,7 @@
 						$dothost = $host;
 						$dothost = strtolower($dothost);
 						if (substr($dothost, 0, 1) != ".")  $dothost = "." . $dothost;
+						$state["dothost"] = $dothost;
 
 						// Append cookies and delete old, invalid cookies.
 						$secure = ($state["urlinfo"]["scheme"] == "https");
@@ -134,6 +135,7 @@
 						if ($cookiepath == "")  $cookiepath = "/";
 						$pos = strrpos($cookiepath, "/");
 						if ($pos !== false)  $cookiepath = substr($cookiepath, 0, $pos + 1);
+						$state["cookiepath"] = $cookiepath;
 						$cookies = array();
 						foreach ($this->data["cookies"] as $domain => $paths)
 						{
@@ -305,16 +307,10 @@
 										unset($cookie["expires_ts"]);
 									}
 
-									if (!isset($cookie["domain"]))  $cookie["domain"] = $dothost;
-									$cookie["domain"] = strtolower($cookie["domain"]);
-									if (substr($cookie["domain"], 0, 1) != ".")  $cookie["domain"] = "." . $cookie["domain"];
-									if (!isset($cookie["path"]))  $cookie["path"] = $cookiepath;
-									$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
-									if (substr($cookie["path"], -1) != "/")  $cookie["path"] = "/";
+									if (!isset($cookie["domain"]))  $cookie["domain"] = $state["dothost"];
+									if (!isset($cookie["path"]))  $cookie["path"] = $state["cookiepath"];
 
-									if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
-									if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
-									$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
+									$this->SetCookie($cookie);
 								}
 							}
 						}
@@ -710,6 +706,29 @@
 			}
 		}
 
+		public function GetCookies()
+		{
+			return $this->data["cookies"];
+		}
+
+		public function SetCookie($cookie)
+		{
+			if (!isset($cookie["domain"]) || !isset($cookie["path"]) || !isset($cookie["name"]) || !isset($cookie["value"]))  return array("success" => false, "error" => HTTP::HTTPTranslate("SetCookie() requires 'domain', 'path', 'name', and 'value' to be options."), "errorcode" => "missing_information");
+
+			$cookie["domain"] = strtolower($cookie["domain"]);
+			if (substr($cookie["domain"], 0, 1) != ".")  $cookie["domain"] = "." . $cookie["domain"];
+
+			$cookie["path"] = str_replace("\\", "/", $cookie["path"]);
+			if (substr($cookie["path"], -1) != "/")  $cookie["path"] = "/";
+
+			if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
+			if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
+			$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
+
+			return array("success" => true);
+		}
+
+		// Simulates closing a web browser.
 		public function DeleteSessionCookies()
 		{
 			foreach ($this->data["cookies"] as $domain => $paths)

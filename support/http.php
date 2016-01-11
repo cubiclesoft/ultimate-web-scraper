@@ -771,7 +771,7 @@
 										// Read in the rest.
 										if ($state["currentfile"]["filesize"] > 0)
 										{
-											$data2 = fread($fp2, $info["filesize"]);
+											$data2 = fread($state["currentfile"]["fp"], $state["currentfile"]["filesize"]);
 											if ($data2 === false || strlen($data2) != $state["currentfile"]["filesize"])  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A read error was encountered with the file '%s'.", $state["currentfile"]["datafile"]), "errorcode" => "file_read"));
 
 											$state["data"] .= $data2;
