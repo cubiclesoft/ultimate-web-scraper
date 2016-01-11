@@ -463,12 +463,15 @@
 			while (strpos($state["data"], "\n") === false)
 			{
 				$data2 = @fgets($state["fp"], 116000);
-				if ($data2 === false || strpos($data2, "\n") === false)
+				if ($data2 === false || $data2 === "")
+				{
+					if ($state["async"])  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
+					else if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
+				}
+				if (strpos($data2, "\n") === false)
 				{
 					if (feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
 					if (self::StreamTimedOut($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
-
-					if ($state["async"] && ($data2 === false || $data2 === ""))  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
 				}
 				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
