@@ -861,7 +861,7 @@
 								"line" => $line,
 								"httpver" => strtoupper($response[0]),
 								"code" => $response[1],
-								"meaning" => $response[2]
+								"meaning" => (isset($response[2]) ? $response[2] : "")
 							);
 
 							$state["state"] = "headers";
