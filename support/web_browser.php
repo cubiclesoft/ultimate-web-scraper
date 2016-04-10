@@ -751,7 +751,7 @@
 				{
 					if ($field["type"] == "input.hidden" || $field["type"] == "input.submit" || $field["type"] == "input.image" || $field["type"] == "input.button" || substr($field["type"], 0, 6) == "button")  continue;
 
-					echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate("[Y]") : HTTP::HTTPTranslate("[N]")) : ""));
+					echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate(" [Y]") : HTTP::HTTPTranslate(" [N]")) : ""));
 				}
 				echo "\n";
 
