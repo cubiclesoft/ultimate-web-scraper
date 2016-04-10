@@ -186,9 +186,15 @@
 		public static function ConvertRelativeToAbsoluteURL($baseurl, $relativeurl)
 		{
 			$relative = (is_array($relativeurl) ? $relativeurl : self::ExtractURL($relativeurl));
-			if ($relative["host"] != "")  return self::CondenseURL($relative);
-
 			$base = (is_array($baseurl) ? $baseurl : self::ExtractURL($baseurl));
+
+			if ($relative["host"] != "")
+			{
+				if ($relative["scheme"] == "")  $relative["scheme"] = $base["scheme"];
+
+				return self::CondenseURL($relative);
+			}
+
 			$result = array(
 				"scheme" => $base["scheme"],
 				"loginusername" => $base["loginusername"],
