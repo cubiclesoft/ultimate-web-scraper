@@ -712,7 +712,7 @@
 			}
 		}
 
-		public function InteractiveFormFill($forms)
+		public function InteractiveFormFill($forms, $showselected = false)
 		{
 			if (!is_array($forms))  $forms = array($forms);
 
@@ -741,9 +741,12 @@
 				$form = $forms[$num];
 			}
 
-			echo HTTP::HTTPTranslate("Selected form:\n");
-			foreach ($form->info as $key => $val)  echo HTTP::HTTPTranslate("\t%s:  %s\n", $key, $val);
-			echo "\n";
+			if ($showselected)
+			{
+				echo HTTP::HTTPTranslate("Selected form:\n");
+				foreach ($form->info as $key => $val)  echo HTTP::HTTPTranslate("\t%s:  %s\n", $key, $val);
+				echo "\n";
+			}
 
 			if (count($form->GetVisibleFields(false)))
 			{
