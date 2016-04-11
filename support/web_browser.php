@@ -687,7 +687,7 @@
 							"name" => $row->name,
 							"value" => (isset($row->value) ? html_entity_decode($row->value, ENT_COMPAT, "UTF-8") : "")
 						);
-						$field["hint"] = "button|" . $field["value"];
+						$field["hint"] = (trim($row->plaintext) !== "" ? trim($row->plaintext) : "button|" . $field["value"]);
 
 						$fields[] = $field;
 
@@ -759,7 +759,7 @@
 					{
 						if ($field["type"] == "input.hidden" || $field["type"] == "input.submit" || $field["type"] == "input.image" || $field["type"] == "input.button" || substr($field["type"], 0, 7) == "button.")  continue;
 
-						echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate(" [Y]") : HTTP::HTTPTranslate(" [N]")) : ""));
+						echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate(" [Y]") : HTTP::HTTPTranslate(" [N]")) : "") . ($field["hint"] !== "" ? " [" . $field["hint"] . "]" : ""));
 					}
 					echo "\n";
 
@@ -773,13 +773,19 @@
 						$num = (int)$num - 1;
 					} while (!isset($form->fields[$num]) || $form->fields[$num]["type"] == "input.hidden" || $form->fields[$num]["type"] == "input.submit" || $form->fields[$num]["type"] == "input.image" || $form->fields[$num]["type"] == "input.button" || substr($form->fields[$num]["type"], 0, 7) == "button.");
 
-					if ($num === "")  break;
+					if ($num === "")
+					{
+						echo "\n";
+
+						break;
+					}
 
 					$field = $form->fields[$num];
+					$prefix = ($field["hint"] !== "" ? $field["hint"] . " | " : "") . $field["name"];
 
 					if ($field["type"] == "select")
 					{
-						echo HTTP::HTTPTranslate("[%s] Options:\n", $field["name"]);
+						echo HTTP::HTTPTranslate("[%s] Options:\n", $prefix);
 						foreach ($field["options"] as $key => $val)
 						{
 							echo HTTP::HTTPTranslate("\t%s:  %s\n");
@@ -787,7 +793,7 @@
 
 						do
 						{
-							echo HTTP::HTTPTranslate("[%s] Select:  ", $field["name"]);
+							echo HTTP::HTTPTranslate("[%s] Select:  ", $prefix);
 
 							$select = rtrim(fgets(STDIN));
 						} while (!isset($field["options"][$select]));
@@ -806,7 +812,7 @@
 					{
 						do
 						{
-							echo HTTP::HTTPTranslate("[%s] Filename:  ", $field["name"]);
+							echo HTTP::HTTPTranslate("[%s] Filename:  ", $prefix);
 
 							$filename = rtrim(fgets(STDIN));
 						} while ($filename !== "" && !file_exists($filename));
@@ -823,7 +829,7 @@
 					}
 					else
 					{
-						echo HTTP::HTTPTranslate("[%s] Value:  ", $field["name"]);
+						echo HTTP::HTTPTranslate("[%s] New value:  ", $prefix);
 
 						$form->fields[$num]["value"] = rtrim(fgets(STDIN));
 					}
@@ -833,7 +839,7 @@
 				} while (1);
 			}
 
-			$submitoptions = array(array("name" => HTTP::HTTPTranslate("Default action"), "value" => HTTP::HTTPTranslate("Might not work")));
+			$submitoptions = array(array("name" => HTTP::HTTPTranslate("Default action"), "value" => HTTP::HTTPTranslate("Might not work"), "hint" => "Default action"));
 			foreach ($form->fields as $num => $field)
 			{
 				if ($field["type"] != "input.submit" && $field["type"] != "input.image" && $field["type"] != "input.button" && $field["type"] != "button.submit")  continue;
@@ -847,7 +853,7 @@
 				echo HTTP::HTTPTranslate("Available submit buttons:\n");
 				foreach ($submitoptions as $num => $field)
 				{
-					echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num, $field["name"], $field["value"]);
+					echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num, $field["name"], $field["value"] . ($field["hint"] !== "" ? " [" . $field["hint"] . "]" : ""));
 				}
 				echo "\n";
 
@@ -857,6 +863,8 @@
 
 					$num = (int)fgets(STDIN);
 				} while (!isset($submitoptions[$num]));
+
+				echo "\n";
 			}
 
 			$result = $form->GenerateFormRequest(($num ? $submitoptions[$num]["name"] : false), ($num ? $submitoptions[$num]["value"] : false));
