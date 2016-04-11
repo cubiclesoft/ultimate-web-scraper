@@ -726,6 +726,8 @@
 				{
 					echo HTTP::HTTPTranslate("\t%d:\n", $num + 1);
 					foreach ($form->info as $key => $val)  echo HTTP::HTTPTranslate("\t\t%s:  %s\n", $key, $val);
+					echo HTTP::HTTPTranslate("\t\tfields:  %d\n", count($form->GetVisibleFields(false)));
+					echo HTTP::HTTPTranslate("\t\tbuttons:  %d\n", count($form->GetVisibleFields(true)) - count($form->GetVisibleFields(false)));
 					echo "\n";
 				}
 
@@ -742,87 +744,91 @@
 			echo HTTP::HTTPTranslate("Selected form:\n");
 			foreach ($form->info as $key => $val)  echo HTTP::HTTPTranslate("\t%s:  %s\n", $key, $val);
 			echo "\n";
-			echo HTTP::HTTPTranslate("Select form fields by field number to edit a field.  When ready to submit the form, leave 'Field number' empty.\n\n");
 
-			do
+			if (count($form->GetVisibleFields(false)))
 			{
-				echo HTTP::HTTPTranslate("Current form fields:\n");
-				foreach ($form->fields as $num => $field)
-				{
-					if ($field["type"] == "input.hidden" || $field["type"] == "input.submit" || $field["type"] == "input.image" || $field["type"] == "input.button" || substr($field["type"], 0, 6) == "button")  continue;
-
-					echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate(" [Y]") : HTTP::HTTPTranslate(" [N]")) : ""));
-				}
-				echo "\n";
+				echo HTTP::HTTPTranslate("Select form fields by field number to edit a field.  When ready to submit the form, leave 'Field number' empty.\n\n");
 
 				do
 				{
-					echo HTTP::HTTPTranslate("Field number:  ");
+					echo HTTP::HTTPTranslate("Editable form fields:\n");
+					foreach ($form->fields as $num => $field)
+					{
+						if ($field["type"] == "input.hidden" || $field["type"] == "input.submit" || $field["type"] == "input.image" || $field["type"] == "input.button" || substr($field["type"], 0, 7) == "button.")  continue;
 
-					$num = trim(fgets(STDIN));
+						echo HTTP::HTTPTranslate("\t%d:  %s - %s\n", $num + 1, $field["name"], (is_array($field["value"]) ? json_encode($field["value"], JSON_PRETTY_PRINT) : $field["value"]) . (($field["type"] == "input.radio" || $field["type"] == "input.checkbox") ? ($field["checked"] ? HTTP::HTTPTranslate(" [Y]") : HTTP::HTTPTranslate(" [N]")) : ""));
+					}
+					echo "\n";
+
+					do
+					{
+						echo HTTP::HTTPTranslate("Field number:  ");
+
+						$num = trim(fgets(STDIN));
+						if ($num === "")  break;
+
+						$num = (int)$num - 1;
+					} while (!isset($form->fields[$num]) || $form->fields[$num]["type"] == "input.hidden" || $form->fields[$num]["type"] == "input.submit" || $form->fields[$num]["type"] == "input.image" || $form->fields[$num]["type"] == "input.button" || substr($form->fields[$num]["type"], 0, 7) == "button.");
+
 					if ($num === "")  break;
 
-					$num = (int)$num - 1;
-				} while (!isset($form->fields[$num]) || $form->fields[$num]["type"] == "input.hidden" || $form->fields[$num]["type"] == "input.submit" || $form->fields[$num]["type"] == "input.image" || $form->fields[$num]["type"] == "input.button" || substr($form->fields[$num]["type"], 0, 6) == "button");
+					$field = $form->fields[$num];
 
-				if ($num === "")  break;
-
-				$field = $form->fields[$num];
-
-				if ($field["type"] == "select")
-				{
-					echo HTTP::HTTPTranslate("[%s] Options:\n", $field["name"]);
-					foreach ($field["options"] as $key => $val)
+					if ($field["type"] == "select")
 					{
-						echo HTTP::HTTPTranslate("\t%s:  %s\n");
+						echo HTTP::HTTPTranslate("[%s] Options:\n", $field["name"]);
+						foreach ($field["options"] as $key => $val)
+						{
+							echo HTTP::HTTPTranslate("\t%s:  %s\n");
+						}
+
+						do
+						{
+							echo HTTP::HTTPTranslate("[%s] Select:  ", $field["name"]);
+
+							$select = rtrim(fgets(STDIN));
+						} while (!isset($field["options"][$select]));
+
+						$form->fields[$num]["value"] = $select;
 					}
-
-					do
+					else if ($field["type"] == "input.radio")
 					{
-						echo HTTP::HTTPTranslate("[%s] Select:  ", $field["name"]);
-
-						$select = rtrim(fgets(STDIN));
-					} while (!isset($field["options"][$select]));
-
-					$form->fields[$num]["value"] = $select;
-				}
-				else if ($field["type"] == "input.radio")
-				{
-					$form->SetFormValue($field["name"], $field["value"], true, "input.radio");
-				}
-				else if ($field["type"] == "input.checkbox")
-				{
-					$form->fields[$num]["checked"] = !$field["checked"];
-				}
-				else if ($field["type"] == "input.file")
-				{
-					do
+						$form->SetFormValue($field["name"], $field["value"], true, "input.radio");
+					}
+					else if ($field["type"] == "input.checkbox")
 					{
-						echo HTTP::HTTPTranslate("[%s] Filename:  ", $field["name"]);
+						$form->fields[$num]["checked"] = !$field["checked"];
+					}
+					else if ($field["type"] == "input.file")
+					{
+						do
+						{
+							echo HTTP::HTTPTranslate("[%s] Filename:  ", $field["name"]);
 
-						$filename = rtrim(fgets(STDIN));
-					} while ($filename !== "" && !file_exists($filename));
+							$filename = rtrim(fgets(STDIN));
+						} while ($filename !== "" && !file_exists($filename));
 
-					if ($filename === "")  $form->fields[$num]["value"] = "";
+						if ($filename === "")  $form->fields[$num]["value"] = "";
+						else
+						{
+							$form->fields[$num]["value"] = array(
+								"filename" => $filename,
+								"type" => "application/octet-stream",
+								"datafile" => $filename
+							);
+						}
+					}
 					else
 					{
-						$form->fields[$num]["value"] = array(
-							"filename" => $filename,
-							"type" => "application/octet-stream",
-							"datafile" => $filename
-						);
+						echo HTTP::HTTPTranslate("[%s] Value:  ", $field["name"]);
+
+						$form->fields[$num]["value"] = rtrim(fgets(STDIN));
 					}
-				}
-				else
-				{
-					echo HTTP::HTTPTranslate("[%s] Value:  ", $field["name"]);
 
-					$form->fields[$num]["value"] = rtrim(fgets(STDIN));
-				}
+					echo "\n";
 
-				echo "\n";
-
-			} while (1);
+				} while (1);
+			}
 
 			$submitoptions = array(array("name" => HTTP::HTTPTranslate("Default action"), "value" => HTTP::HTTPTranslate("Might not work")));
 			foreach ($form->fields as $num => $field)
@@ -963,6 +969,19 @@
 			foreach ($this->fields as $num => $field)
 			{
 				if (isset($field["hint"]))  $result[$field["hint"]] = $field["name"];
+			}
+
+			return $result;
+		}
+
+		public function GetVisibleFields($submit)
+		{
+			$result = array();
+			foreach ($this->fields as $num => $field)
+			{
+				if ($field["type"] == "input.hidden" || (!$submit && ($field["type"] == "input.submit" || $field["type"] == "input.image" || $field["type"] == "input.button" || substr($field["type"], 0, 7) == "button.")))  continue;
+
+				$result[$num] = $field;
 			}
 
 			return $result;
