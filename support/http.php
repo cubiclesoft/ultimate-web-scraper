@@ -1058,6 +1058,37 @@
 			}
 		}
 
+		public static function RawFileSize($filename)
+		{
+			$fp = @fopen($filename, "rb");
+			if ($fp === false)  return 0;
+
+			$pos = 0;
+			$size = 1073741824;
+			fseek($fp, 0, SEEK_SET);
+			while ($size > 1)
+			{
+				fseek($fp, $size, SEEK_CUR);
+
+				if (fgetc($fp) === false)
+				{
+					fseek($fp, -$size, SEEK_CUR);
+					$size = (int)($size / 2);
+				}
+				else
+				{
+					fseek($fp, -1, SEEK_CUR);
+					$pos += $size;
+				}
+			}
+
+			while (fgetc($fp) !== false)  $pos++;
+
+			fclose($fp);
+
+			return $pos;
+		}
+
 		public static function RetrieveWebpage($url, $options = array())
 		{
 			$startts = microtime(true);
@@ -1224,7 +1255,7 @@
 					$body2 .= "Content-Type: " . $type . "\r\n";
 					$body2 .= "\r\n";
 
-					$info["filesize"] = (isset($info["datafile"]) ? filesize($info["datafile"]) : strlen($info["data"]));
+					$info["filesize"] = (isset($info["datafile"]) ? self::RawFileSize($info["datafile"]) : strlen($info["data"]));
 					$bodysize += strlen($body2) + $info["filesize"] + 2;
 
 					$options["files"][$num] = $info;
