@@ -1,6 +1,6 @@
 <?php
 	// Deflate stream class.  Default is RFC1951 (raw deflate).  Supports RFC1950 (ZLIB) and RFC1952 (gzip).
-	// (C) 2013 CubicleSoft.  All Rights Reserved.
+	// (C) 2016 CubicleSoft.  All Rights Reserved.
 
 	class DeflateStream
 	{
@@ -93,6 +93,8 @@
 				}
 				else if ($this->options["type"] == "gzip")
 				{
+					if (!class_exists("CRC32Stream"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/crc32_stream.php";
+
 					$this->options["crc32"] = new CRC32Stream();
 					$this->options["crc32"]->Init();
 					$this->options["bytes"] = 0;
