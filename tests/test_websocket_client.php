@@ -1,14 +1,13 @@
 <?php
-	// Requires both the WebBrowser and HTTP classes to work.
-	require_once "support/websocket.php";
-	require_once "support/web_browser.php";
-	require_once "support/http.php";
+	// Temporary root.
+	$rootpath = str_replace("\\", "/", dirname(__FILE__));
+	require_once $rootpath . "/../support/websocket.php";
 
 	$ws = new WebSocket();
 
 	// The first parameter is the WebSocket server.
 	// The second parameter is the Origin URL.
-	$result = $ws->Connect("ws://localhost:5578/math/?apikey=123456789101112", "http://localhost");
+	$result = $ws->Connect("ws://localhost:5578/math?apikey=123456789101112", "http://localhost");
 	if (!$result["success"])
 	{
 		var_dump($result);
@@ -48,7 +47,7 @@
 				echo "\n";
 
 				$data = json_decode($result["data"]["payload"], true);
-				echo "The server said:  " . $data["question"] . " = " . $data["answer"] . "\n\n";
+				echo "The server said:  " . ($data["success"] ? $data["response"]["question"] . " = " . $data["response"]["answer"] : $data["error"] . " (" . $data["errorcode"] . ")") . "\n\n";
 			}
 		} while ($result["data"] !== false);
 

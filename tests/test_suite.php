@@ -1,6 +1,6 @@
 <?php
 	// Test suite.
-	// (C) 2015 CubicleSoft.  All Rights Reserved.
+	// (C) 2016 CubicleSoft.  All Rights Reserved.
 
 	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
 	{
@@ -11,13 +11,10 @@
 
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
-	require_once $rootpath . "/support/web_browser.php";
-	require_once $rootpath . "/support/http.php";
-	require_once $rootpath . "/support/crc32_stream.php";
-	require_once $rootpath . "/support/deflate_stream.php";
-	require_once $rootpath . "/support/simple_html_dom.php";
-	require_once $rootpath . "/support/tag_filter.php";
-	require_once $rootpath . "/support/multi_async_helper.php";
+	require_once $rootpath . "/../support/web_browser.php";
+	require_once $rootpath . "/../support/simple_html_dom.php";
+	require_once $rootpath . "/../support/tag_filter.php";
+	require_once $rootpath . "/../support/multi_async_helper.php";
 
 	function TestHTMLTagFilter($stack, &$content, $open, $tagname, &$attrs, $options)
 	{
