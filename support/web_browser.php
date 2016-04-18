@@ -9,6 +9,8 @@
 
 		public function __construct($prevstate = array())
 		{
+			if (!class_exists("HTTP"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
+
 			$this->ResetState();
 			$this->SetState($prevstate);
 			$this->html = false;
@@ -516,7 +518,12 @@
 
 			$lasthint = "";
 			$hintmap = array();
-			if ($this->html === false)  $this->html = new simple_html_dom();
+			if ($this->html === false)
+			{
+				if (!class_exists("simple_html_dom"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/simple_html_dom.php";
+
+				$this->html = new simple_html_dom();
+			}
 			$this->html->load($data);
 			$rows = $this->html->find("label[for]");
 			foreach ($rows as $row)
