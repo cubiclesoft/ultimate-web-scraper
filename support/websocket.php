@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP WebSocket class.
-	// (C) 2015 CubicleSoft.  All Rights Reserved.
+	// (C) 2016 CubicleSoft.  All Rights Reserved.
 
 	// Implements RFC 6455 (WebSocket protocol).
 	// Requires the CubicleSoft PHP HTTP/HTTPS class.
@@ -107,12 +107,14 @@
 			if (isset($options["fp"]) && is_resource($options["fp"]))  $this->fp = $options["fp"];
 			else
 			{
+				if (!class_exists("WebBrowser"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/web_browser.php";
+
 				// Use WebBrowser to initiate the connection.
 				if ($web === false)  $web = new WebBrowser();
 
 				// Transform URL.
 				$url2 = HTTP::ExtractURL($url);
-				if ($url2["scheme"] != "ws" && $url2["scheme"] != "wss")  return array("success" => false, "error" => HTTP::HTTPTranslate("WebSocket::Connect() only supports the 'ws' and 'wss' protocols."), "errorcode" => "protocol_check");
+				if ($url2["scheme"] != "ws" && $url2["scheme"] != "wss")  return array("success" => false, "error" => self::WSTranslate("WebSocket::Connect() only supports the 'ws' and 'wss' protocols."), "errorcode" => "protocol_check");
 				$url2["scheme"] = str_replace("ws", "http", $url2["scheme"]);
 				$url2 = HTTP::CondenseURL($url2);
 
@@ -132,11 +134,11 @@
 				// Connect to the WebSocket.
 				$result = $web->Process($url2, $profile, $options);
 				if (!$result["success"])  return $result;
-				if ($result["response"]["code"] != 101)  return array("success" => false, "error" => HTTP::HTTPTranslate("WebSocket::Connect() failed to connect to the WebSocket.  Server returned:  %s %s", $result["response"]["code"], $result["response"]["meaning"]), "errorcode" => "incorrect_server_response");
-				if (!isset($result["headers"]["Sec-Websocket-Accept"]))  return array("success" => false, "error" => HTTP::HTTPTranslate("Server failed to include a 'Sec-WebSocket-Accept' header in its response to the request."), "errorcode" => "missing_server_websocket_accept_header");
+				if ($result["response"]["code"] != 101)  return array("success" => false, "error" => self::WSTranslate("WebSocket::Connect() failed to connect to the WebSocket.  Server returned:  %s %s", $result["response"]["code"], $result["response"]["meaning"]), "errorcode" => "incorrect_server_response");
+				if (!isset($result["headers"]["Sec-Websocket-Accept"]))  return array("success" => false, "error" => self::WSTranslate("Server failed to include a 'Sec-WebSocket-Accept' header in its response to the request."), "errorcode" => "missing_server_websocket_accept_header");
 
 				// Verify the Sec-WebSocket-Accept response.
-				if ($result["headers"]["Sec-Websocket-Accept"][0] !== base64_encode(sha1($key . self::KEY_GUID, true)))  return array("success" => false, "error" => HTTP::HTTPTranslate("The server's 'Sec-WebSocket-Accept' header is invalid."), "errorcode" => "invalid_server_websocket_accept_header");
+				if ($result["headers"]["Sec-Websocket-Accept"][0] !== base64_encode(sha1($key . self::KEY_GUID, true)))  return array("success" => false, "error" => self::WSTranslate("The server's 'Sec-WebSocket-Accept' header is invalid."), "errorcode" => "invalid_server_websocket_accept_header");
 
 				$this->fp = $result["fp"];
 			}
@@ -189,7 +191,7 @@
 		// Reads the next message or message fragment (depending on $finished).  Returns immediately unless $wait is not false.
 		public function Read($finished = true, $wait = false)
 		{
-			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => HTTP::HTTPTranslate("Connection not established."), "errorcode" => "no_connection");
+			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => self::WSTranslate("Connection not established."), "errorcode" => "no_connection");
 
 			if ($wait)
 			{
@@ -222,7 +224,7 @@
 		// Adds the message to the write queue.  Returns immediately unless $wait is not false.
 		public function Write($message, $frametype, $last = true, $wait = false, $pos = false)
 		{
-			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => HTTP::HTTPTranslate("Connection not established."), "errorcode" => "no_connection");
+			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => self::WSTranslate("Connection not established."), "errorcode" => "no_connection");
 
 			$message = (string)$message;
 
@@ -244,7 +246,7 @@
 			}
 			else
 			{
-				if ($frametype !== $this->writemessages[$y - 1]["opcode"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Mismatched frame type (opcode) specified."), "errorcode" => "mismatched_frame_type");
+				if ($frametype !== $this->writemessages[$y - 1]["opcode"])  return array("success" => false, "error" => self::WSTranslate("Mismatched frame type (opcode) specified."), "errorcode" => "mismatched_frame_type");
 
 				$this->writemessages[$y - 1]["fin"] = (bool)$last;
 				$this->writemessages[$y - 1]["payloads"][] = $message;
@@ -278,7 +280,7 @@
 		// Waits until one or more events time out, handles reading and writing, processes the queues (handle control types automatically), and returns the latest status.
 		public function Wait($timeout = false)
 		{
-			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => HTTP::HTTPTranslate("Connection not established."), "errorcode" => "no_connection");
+			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => self::WSTranslate("Connection not established."), "errorcode" => "no_connection");
 
 			$this->FillWriteData();
 
@@ -287,7 +289,7 @@
 			$exceptfp = NULL;
 			if ($timeout === false || $timeout > $this->keepalive)  $timeout = $this->keepalive;
 			$result = @stream_select($readfp, $writefp, $exceptfp, $timeout);
-			if ($result === false)  return array("success" => false, "error" => HTTP::HTTPTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
+			if ($result === false)  return array("success" => false, "error" => self::WSTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
 			// Process queues and timeouts.
 			$result = $this->ProcessQueuesAndTimeoutState(($result > 0 && count($readfp)), ($result > 0 && $writefp !== NULL && count($writefp)));
@@ -298,18 +300,18 @@
 		// A mostly internal function.  Useful for managing multiple simultaneous WebSocket connections.
 		public function ProcessQueuesAndTimeoutState($read, $write)
 		{
-			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => HTTP::HTTPTranslate("Connection not established."), "errorcode" => "no_connection");
+			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => self::WSTranslate("Connection not established."), "errorcode" => "no_connection");
 
 			if ($read)
 			{
 				$result = @fread($this->fp, 65536);
-				if ($result === false || feof($this->fp))  return array("success" => false, "error" => HTTP::HTTPTranslate("ProcessQueuesAndTimeoutState() failed due to fread() failure.  Most likely cause:  Connection failure."), "errorcode" => "fread_failed");
+				if ($result === false || feof($this->fp))  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to fread() failure.  Most likely cause:  Connection failure."), "errorcode" => "fread_failed");
 
 				if ($result !== "")
 				{
 					$this->readdata .= $result;
 
-					if ($this->maxreadframesize !== false && strlen($this->readdata) > $this->maxreadframesize)  return array("success" => false, "error" => HTTP::HTTPTranslate("ProcessQueuesAndTimeoutState() failed due to peer sending a single frame exceeding %s bytes of data.", $this->maxreadframesize), "errorcode" => "max_read_frame_size_exceeded");
+					if ($this->maxreadframesize !== false && strlen($this->readdata) > $this->maxreadframesize)  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to peer sending a single frame exceeding %s bytes of data.", $this->maxreadframesize), "errorcode" => "max_read_frame_size_exceeded");
 
 					$result = $this->ProcessReadData();
 					if (!$result["success"])  return $result;
@@ -322,7 +324,7 @@
 			if ($write)
 			{
 				$result = @fwrite($this->fp, $this->writedata);
-				if ($result === false || feof($this->fp))  return array("success" => false, "error" => HTTP::HTTPTranslate("ProcessQueuesAndTimeoutState() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
+				if ($result === false || feof($this->fp))  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
 
 				$this->writedata = (string)substr($this->writedata, $result);
 			}
@@ -330,7 +332,7 @@
 			// Handle timeout state.
 			if ($this->lastkeepalive < time() - $this->keepalive)
 			{
-				if ($this->keepalivesent)  return array("success" => false, "error" => HTTP::HTTPTranslate("ProcessQueuesAndTimeoutState() failed due to non-response from peer to ping frame.  Most likely cause:  Connection failure."), "errorcode" => "ping_failed");
+				if ($this->keepalivesent)  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to non-response from peer to ping frame.  Most likely cause:  Connection failure."), "errorcode" => "ping_failed");
 				else
 				{
 					$result = $this->Write(time(), self::FRAMETYPE_PING, true, false, 0);
@@ -349,15 +351,15 @@
 			while (($frame = $this->ReadFrame()) !== false)
 			{
 				// Verify that the opcode is probably valid.
-				if (($frame["opcode"] >= 0x03 && $frame["opcode"] <= 0x07) || $frame["opcode"] >= 0x0B)  return array("success" => false, "error" => HTTP::HTTPTranslate("Invalid frame detected.  Bad opcode 0x%02X.", $frame["opcode"]), "errorcode" => "bad_frame_opcode");
+				if (($frame["opcode"] >= 0x03 && $frame["opcode"] <= 0x07) || $frame["opcode"] >= 0x0B)  return array("success" => false, "error" => self::WSTranslate("Invalid frame detected.  Bad opcode 0x%02X.", $frame["opcode"]), "errorcode" => "bad_frame_opcode");
 
 				// No extension support (yet).
-				if ($frame["rsv1"] || $frame["rsv2"] || $frame["rsv3"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Invalid frame detected.  One or more reserved extension bits are set."), "errorcode" => "bad_reserved_bits_set");
+				if ($frame["rsv1"] || $frame["rsv2"] || $frame["rsv3"])  return array("success" => false, "error" => self::WSTranslate("Invalid frame detected.  One or more reserved extension bits are set."), "errorcode" => "bad_reserved_bits_set");
 
 				if ($frame["opcode"] >= 0x08)
 				{
 					// Handle the control frame.
-					if (!$frame["fin"])  return array("success" => false, "error" => HTTP::HTTPTranslate("Invalid frame detected.  Fragmented control frame was received."), "errorcode" => "bad_control_frame");
+					if (!$frame["fin"])  return array("success" => false, "error" => self::WSTranslate("Invalid frame detected.  Fragmented control frame was received."), "errorcode" => "bad_control_frame");
 
 					if ($frame["opcode"] === self::FRAMETYPE_CONNECTION_CLOSE)
 					{
@@ -367,7 +369,7 @@
 							@fclose($this->fp);
 							$this->fp = false;
 
-							return array("success" => false, "error" => HTTP::HTTPTranslate("Connection closed by peer."), "errorcode" => "connection_closed");
+							return array("success" => false, "error" => self::WSTranslate("Connection closed by peer."), "errorcode" => "connection_closed");
 						}
 						else
 						{
@@ -402,20 +404,20 @@
 					if ($lastcompleted)
 					{
 						// Make sure the new frame is the start of a fragment or is not fragemented.
-						if ($frame["opcode"] === self::FRAMETYPE_CONTINUATION)  return array("success" => false, "error" => HTTP::HTTPTranslate("Invalid frame detected.  Fragment continuation frame was received at the start of a fragment."), "errorcode" => "bad_continuation_frame");
+						if ($frame["opcode"] === self::FRAMETYPE_CONTINUATION)  return array("success" => false, "error" => self::WSTranslate("Invalid frame detected.  Fragment continuation frame was received at the start of a fragment."), "errorcode" => "bad_continuation_frame");
 
 						$this->readmessages[] = $frame;
 					}
 					else
 					{
 						// Make sure the frame is a continuation frame.
-						if ($frame["opcode"] !== self::FRAMETYPE_CONTINUATION)  return array("success" => false, "error" => HTTP::HTTPTranslate("Invalid frame detected.  Fragment continuation frame was not received for a fragment."), "errorcode" => "missing_continuation_frame");
+						if ($frame["opcode"] !== self::FRAMETYPE_CONTINUATION)  return array("success" => false, "error" => self::WSTranslate("Invalid frame detected.  Fragment continuation frame was not received for a fragment."), "errorcode" => "missing_continuation_frame");
 
 						$this->readmessages[count($this->readmessages) - 1]["fin"] = $frame["fin"];
 						$this->readmessages[count($this->readmessages) - 1]["payload"] .= $frame["payload"];
 					}
 
-					if ($this->maxreadmessagesize !== false && strlen($this->readmessages[count($this->readmessages) - 1]["payload"]) > $this->maxreadmessagesize)  return array("success" => false, "error" => HTTP::HTTPTranslate("Peer sent a single message exceeding %s bytes of data.", $this->maxreadmessagesize), "errorcode" => "max_read_message_size_exceeded");
+					if ($this->maxreadmessagesize !== false && strlen($this->readmessages[count($this->readmessages) - 1]["payload"]) > $this->maxreadmessagesize)  return array("success" => false, "error" => self::WSTranslate("Peer sent a single message exceeding %s bytes of data.", $this->maxreadmessagesize), "errorcode" => "max_read_message_size_exceeded");
 				}
 
 //var_dump($frame);
@@ -608,6 +610,14 @@
 			$result = substr($result, -8);
 
 			return $result;
+		}
+
+		public static function WSTranslate()
+		{
+			$args = func_get_args();
+			if (!count($args))  return "";
+
+			return call_user_func_array((defined("CS_TRANSLATE_FUNC") && function_exists(CS_TRANSLATE_FUNC) ? CS_TRANSLATE_FUNC : "sprintf"), $args);
 		}
 	}
 ?>
