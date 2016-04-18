@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP HTTP class.
-	// (C) 2015 CubicleSoft.  All Rights Reserved.
+	// (C) 2016 CubicleSoft.  All Rights Reserved.
 
 	class HTTP
 	{
@@ -47,10 +47,11 @@
 					else
 					{
 						$name = substr($var, 0, $pos);
-						$value = substr($var, $pos + 1);
+						$value = urldecode(substr($var, $pos + 1));
 					}
-					if (!isset($result["queryvars"][urldecode($name)]))  $result["queryvars"][urldecode($name)] = array();
-					$result["queryvars"][urldecode($name)][] = urldecode($value);
+					$name = urldecode($name);
+					if (!isset($result["queryvars"][$name]))  $result["queryvars"][$name] = array();
+					$result["queryvars"][$name][] = $value;
 				}
 			}
 
@@ -331,6 +332,72 @@
 			return $result;
 		}
 
+		public static function ExtractHeader($data)
+		{
+			$result = array();
+			$data = trim($data);
+			while ($data != "")
+			{
+				// Extract name/value pair.
+				$pos = strpos($data, "=");
+				$pos2 = strpos($data, ";");
+				if (($pos !== false && $pos2 === false) || ($pos !== false && $pos2 !== false && $pos < $pos2))
+				{
+					$name = trim(substr($data, 0, $pos));
+					$data = trim(substr($data, $pos + 1));
+					if (ord($data[0]) == ord("\""))
+					{
+						$pos = strpos($data, "\"", 1);
+						if ($pos !== false)
+						{
+							$value = substr($data, 1, $pos - 1);
+							$data = trim(substr($data, $pos + 1));
+							$pos = strpos($data, ";");
+							if ($pos !== false)  $data = substr($data, $pos + 1);
+							else  $data = "";
+						}
+						else
+						{
+							$value = $data;
+							$data = "";
+						}
+					}
+					else
+					{
+						$pos = strpos($data, ";");
+						if ($pos !== false)
+						{
+							$value = trim(substr($data, 0, $pos));
+							$data = substr($data, $pos + 1);
+						}
+						else
+						{
+							$value = $data;
+							$data = "";
+						}
+					}
+				}
+				else if ($pos2 !== false)
+				{
+					$name = "";
+					$value = trim(substr($data, 0, $pos2));
+					$data = substr($data, $pos2 + 1);
+				}
+				else
+				{
+					$name = "";
+					$value = $data;
+					$data = "";
+				}
+
+				if ($name != "" || $value != "")  $result[strtolower($name)] = $value;
+
+				$data = trim($data);
+			}
+
+			return $result;
+		}
+
 		private static function ProcessSSLOptions(&$options, $key, $host)
 		{
 			if (isset($options[$key]["auto_cainfo"]))
@@ -432,7 +499,7 @@
 			return $info["timed_out"];
 		}
 
-		private static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close)
+		public static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close, $client = true)
 		{
 			$state = array(
 				"fp" => $fp,
@@ -446,13 +513,15 @@
 				"data" => "",
 				"rawsize" => 0,
 				"rawrecvheadersize" => 0,
+				"numheaders" => 0,
 				"autodecode" => (!isset($options["auto_decode"]) || $options["auto_decode"]),
 
-				"state" => "response_line",
+				"state" => ($client ? "response_line" : "request_line"),
 
 				"options" => $options,
 				"result" => $result,
-				"close" => $close
+				"close" => $close,
+				"client" => $client
 			);
 
 			$state["result"]["recvstart"] = microtime(true);
@@ -474,16 +543,21 @@
 					if ($state["async"])  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
 					else if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
 				}
-				if (strpos($data2, "\n") === false)
+				$pos = strpos($data2, "\n");
+				if ($pos === false)
 				{
 					if (feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
 					if (self::StreamTimedOut($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream timed out."), "errorcode" => "stream_timeout_exceeded");
+
+					$pos = strlen($data2);
 				}
 				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
+				if (isset($state["options"]["readlinelimit"]) && strlen($state["data"]) + $pos > $state["options"]["readlinelimit"])  return array("success" => false, "error" => self::HTTPTranslate("Read line exceeded limit."), "errorcode" => "read_line_limit_exceeded");
 
 				$state["rawsize"] += strlen($data2);
 				$state["data"] .= $data2;
 
+				if (isset($state["options"]["recvlimit"]) && $state["options"]["recvlimit"] < $state["rawsize"])  return array("success" => false, "error" => self::HTTPTranslate("Received data exceeded limit."), "errorcode" => "receive_limit_exceeded");
 				if (isset($state["options"]["recvratelimit"]))  $state["waituntil"] = self::ProcessRateLimit($state["rawsize"], $state["recvstart"], $state["options"]["recvratelimit"], $state["async"]);
 
 				if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("rawrecv", $data2, &$state["options"]["debug_callback_opts"]));
@@ -514,7 +588,9 @@
 				if ($state["sizeleft"] !== false)  $state["sizeleft"] -= $tempsize;
 
 				if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= self::GetDecodedBody($state["autodecode_ds"], $data2);
-				else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+				else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"][($state["client"] ? "response" : "request")], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback");
+
+				if (isset($state["options"]["recvlimit"]) && $state["options"]["recvlimit"] < $state["rawsize"])  return array("success" => false, "error" => self::HTTPTranslate("Received data exceeded limit."), "errorcode" => "receive_limit_exceeded");
 
 				if (isset($state["options"]["recvratelimit"]))
 				{
@@ -712,24 +788,27 @@
 								if ($state["bodysize"] === false || $state["bodysize"] > 0)
 								{
 									$bodysize2 = $state["bodysize"];
-									$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
+									$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$state["options"]["write_body_callback_opts"]));
 									if (!$result || ($state["bodysize"] !== false && strlen($state["data"]) > $state["bodysize"]))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback"));
 
 									if ($state["bodysize"] === false)
 									{
-										$state["data"] = dechex(strlen($state["data"])) . "\r\n" . $state["data"] . "\r\n";
+										if ($state["data"] !== "" && $state["chunked"])  $state["data"] = dechex(strlen($state["data"])) . "\r\n" . $state["data"] . "\r\n";
 
 										// When $bodysize2 is set to true, it is the last chunk.
 										if ($bodysize2 === true)
 										{
-											$state["data"] .= "0\r\n";
+											if ($state["chunked"])
+											{
+												$state["data"] .= "0\r\n";
 
-											// Allow the body callback function to append additional headers to the content to send.
-											// It is up to the callback function to correctly format the extra headers.
-											$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$options["write_body_callback_opts"]));
-											if (!$result)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback"));
+												// Allow the body callback function to append additional headers to the content to send.
+												// It is up to the callback function to correctly format the extra headers.
+												$result = call_user_func_array($state["options"]["write_body_callback"], array(&$state["data"], &$bodysize2, &$state["options"]["write_body_callback_opts"]));
+												if (!$result)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("HTTP write body callback function failed."), "errorcode" => "write_body_callback"));
 
-											$state["data"] .= "\r\n";
+												$state["data"] .= "\r\n";
+											}
 
 											$state["bodysize"] = 0;
 										}
@@ -813,8 +892,20 @@
 								return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A weird internal HTTP error that should never, ever happen...just happened."), "errorcode" => "impossible"));
 							}
 
-							// All done sending data to the server.
-							if ($state["data"] === "")  $state["state"] = "receive_switch";
+							// All done sending data.
+							if ($state["data"] === "")
+							{
+								if ($state["client"])  $state["state"] = "receive_switch";
+								else
+								{
+									$state["result"]["endts"] = microtime(true);
+
+									if ($state["close"])  fclose($state["fp"]);
+									else  $state["result"]["fp"] = $state["fp"];
+
+									return $state["result"];
+								}
+							}
 
 							break;
 						}
@@ -876,6 +967,52 @@
 
 							break;
 						}
+						case "request_line":
+						{
+							// Server mode only.
+							$result = self::ProcessState__ReadLine($state);
+							if (!$result["success"])  return self::CleanupErrorState($state, $result);
+
+							// Parse the request line.
+							$pos = strpos($state["data"], "\n");
+							if ($pos === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Unable to retrieve request line."), "errorcode" => "get_request_line"));
+							$line = trim(substr($state["data"], 0, $pos));
+							$state["data"] = substr($state["data"], $pos + 1);
+							$state["rawrecvheadersize"] += $pos + 1;
+
+							$request = $line;
+							$pos = strpos($request, " ");
+							if ($pos === false)  $pos = strlen($request);
+							$method = (string)substr($request, 0, $pos);
+							$request = trim(substr($request, $pos));
+
+							$pos = strrpos($request, " ");
+							if ($pos === false)  $pos = strlen($request);
+							$path = trim(substr($request, 0, $pos));
+							if ($path === "")  $path = "/";
+							$version = (string)substr($request, $pos + 1);
+
+							$state["result"]["request"] = array(
+								"line" => $line,
+								"method" => strtoupper($method),
+								"path" => $path,
+								"httpver" => strtoupper($version),
+							);
+
+							// Fake the response line to bypass some client-only code.
+							$state["result"]["response"] = array(
+								"line" => "200",
+								"httpver" => "",
+								"code" => 200,
+								"meaning" => ""
+							);
+
+							$state["state"] = "headers";
+							$state["result"]["headers"] = array();
+							$state["lastheader"] = "";
+
+							break;
+						}
 						case "headers":
 						case "body_chunked_headers":
 						{
@@ -898,12 +1035,15 @@
 									if (!isset($state["result"]["headers"][$state["lastheader"]]))  $state["result"]["headers"][$state["lastheader"]] = array();
 									$state["result"]["headers"][$state["lastheader"]][] = ltrim(substr($header, $pos + 1));
 								}
+
+								$state["numheaders"]++;
+								if (isset($state["options"]["maxheaders"]) && $state["numheaders"] > $state["options"]["maxheaders"])  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("The number of headers exceeded the limit."), "errorcode" => "headers_limit_exceeded"));
 							}
 							else
 							{
 								if ($state["result"]["response"]["code"] != 100 && isset($state["options"]["read_headers_callback"]) && is_callable($state["options"]["read_headers_callback"]))
 								{
-									if (!call_user_func_array($state["options"]["read_headers_callback"], array(&$state["result"]["response"], &$state["result"]["headers"], &$state["options"]["read_headers_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback"));
+									if (!call_user_func_array($state["options"]["read_headers_callback"], array(&$state["result"][($state["client"] ? "response" : "request")], &$state["result"]["headers"], &$state["options"]["read_headers_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read headers callback returned with a failure condition."), "errorcode" => "read_header_callback"));
 								}
 
 								// Additional headers (optional) are the last bit of data in a chunked response.
@@ -921,7 +1061,7 @@
 										if (!$state["autodecode"])  $state["autodecode_ds"] = false;
 										else
 										{
-											require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
+											if (!class_exists("DeflateStream"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
 
 											// Since servers and browsers do everything wrong, ignore the encoding claim and attempt to auto-detect the encoding.
 											$state["autodecode_ds"] = new DeflateStream();
@@ -935,9 +1075,12 @@
 										}
 										else
 										{
-											$state["sizeleft"] = (isset($state["result"]["headers"]["Content-Length"]) ? (int)$state["result"]["headers"]["Content-Length"][0] : false);
-											$state["state"] = "body_content";
+											$state["sizeleft"] = (isset($state["result"]["headers"]["Content-Length"]) ? (double)preg_replace('/[^0-9]/', "", $state["result"]["headers"]["Content-Length"][0]) : false);
+											$state["state"] = ($state["sizeleft"] !== false || $state["client"] ? "body_content" : "done");
 										}
+
+										// Let servers have a chance to alter limits before processing the input body.
+										if (!$state["client"] && $state["state"] !== "done")    return array("success" => false, "error" => self::HTTPTranslate("Intermission for adjustments to limits."), "errorcode" => "no_data");
 									}
 								}
 							}
@@ -968,7 +1111,7 @@
 								$size2 -= $size3;
 
 								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= self::GetDecodedBody($state["autodecode_ds"], $data2);
-								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"][($state["client"] ? "response" : "request")], self::GetDecodedBody($state["autodecode_ds"], $data2), &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
 							}
 
 							$state["chunksize"] = $size;
@@ -1022,7 +1165,7 @@
 								$data2 = $state["autodecode_ds"]->Read();
 
 								if ($state["result"]["response"]["code"] == 100 || !isset($state["options"]["read_body_callback"]) || !is_callable($state["options"]["read_body_callback"]))  $state["result"]["body"] .= $data2;
-								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"]["response"], $data2, &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
+								else if (!call_user_func_array($state["options"]["read_body_callback"], array($state["result"][($state["client"] ? "response" : "request")], $data2, &$state["options"]["read_body_callback_opts"])))  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("Read body callback returned with a failure condition."), "errorcode" => "read_body_callback"));
 							}
 
 							$state["state"] = "done";
@@ -1048,7 +1191,7 @@
 				$state["result"]["endts"] = microtime(true);
 
 				if ($state["close"])  fclose($state["fp"]);
-				else  $state["result"] = $state["fp"];
+				else  $state["result"]["fp"] = $state["fp"];
 
 				return $state["result"];
 			}
@@ -1058,10 +1201,14 @@
 			}
 		}
 
-		public static function RawFileSize($filename)
+		public static function RawFileSize($fileorname)
 		{
-			$fp = @fopen($filename, "rb");
-			if ($fp === false)  return 0;
+			if (is_resource($fileorname))  $fp = $fileorname;
+			else
+			{
+				$fp = @fopen($fileorname, "rb");
+				if ($fp === false)  return 0;
+			}
 
 			$pos = 0;
 			$size = 1073741824;
@@ -1084,7 +1231,7 @@
 
 			while (fgetc($fp) !== false)  $pos++;
 
-			fclose($fp);
+			if (!is_resource($fileorname))  fclose($fp);
 
 			return $pos;
 		}
@@ -1372,6 +1519,7 @@
 				"mime" => $mime,
 				"data" => $data,
 				"bodysize" => $bodysize,
+				"chunked" => ($bodysize === false),
 				"secure" => $secure,
 				"useproxy" => $useproxy,
 				"proxysecure" => $proxysecure,
@@ -1383,7 +1531,8 @@
 
 				"options" => $options,
 				"result" => $result,
-				"close" => ($options["headers"]["Connection"] === "close")
+				"close" => ($options["headers"]["Connection"] === "close"),
+				"client" => true
 			);
 
 			// Return the state for async calls.  Caller must call ProcessState().
