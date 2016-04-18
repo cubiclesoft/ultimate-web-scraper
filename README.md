@@ -3,7 +3,7 @@ Ultimate Web Scraper Toolkit
 
 A PHP library of tools designed to handle all of your web scraping needs under a MIT or LGPL license.  This toolkit easily makes RFC-compliant web requests that are indistinguishable from a real web browser, a web browser-like state engine for handling cookies and redirects, and a full cURL emulation layer for web hosts without the PHP cURL extension installed.  Simple HTML DOM is included to easily extract the desired content from each retrieved document.
 
-It also comes with classes for creating custom web servers and WebSocket servers.  That custom API you want the average person to install on their home computer just became easier to deploy.
+It also comes with classes for creating custom web servers and WebSocket servers.  That custom API you want the average person to install on their home computer or deploy to devices in the enterprise just became easier to deploy.
 
 Features
 --------
