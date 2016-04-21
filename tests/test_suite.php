@@ -83,7 +83,7 @@
 
 	echo "Testing XSS removal\n";
 	echo "-------------------\n";
-	$testfile = file_get_contents("test_xss.txt");
+	$testfile = file_get_contents($rootpath . "/test_xss.txt");
 	$pos = strpos($testfile, "@EXIT@");
 	if ($pos === false)  $pos = strlen($testfile);
 	$testfile = substr($testfile, 0, $pos);
@@ -94,7 +94,7 @@
 
 	echo "Testing Word HTML cleanup\n";
 	echo "-------------------------\n";
-	$testfile = file_get_contents("test_word.txt");
+	$testfile = file_get_contents($rootpath . "/test_word.txt");
 	$pos = strpos($testfile, "@EXIT@");
 	if ($pos === false)  $pos = strlen($testfile);
 	$testfile = substr($testfile, 0, $pos);

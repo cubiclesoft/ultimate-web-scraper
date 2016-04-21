@@ -62,7 +62,7 @@
 						$val = ord($content{$x});
 						if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 						{
-							if ($x > 1)  $prefix = ltrim(substr($content, $cx + 1, $x - $cx - 1));
+							if ($x > $cx + 1)  $prefix = ltrim(substr($content, $cx + 1, $x - $cx - 1));
 							$startpos = $x;
 
 							break;
@@ -111,7 +111,7 @@
 						else
 						{
 							// Unknown.  Encode it.
-							$data = substr($content, $cx, strpos($content, $prefix, $cx) + strlen($prefix));
+							$data = substr($content, $cx, strpos($content, $prefix, $cx) + strlen($prefix) - $cx);
 							$result .= htmlspecialchars($data);
 							$cx += strlen($data);
 
