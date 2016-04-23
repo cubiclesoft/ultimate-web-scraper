@@ -93,7 +93,7 @@
 				}
 				else if ($this->options["type"] == "gzip")
 				{
-					if (!class_exists("CRC32Stream"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/crc32_stream.php";
+					if (!class_exists("CRC32Stream", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/crc32_stream.php";
 
 					$this->options["crc32"] = new CRC32Stream();
 					$this->options["crc32"]->Init();

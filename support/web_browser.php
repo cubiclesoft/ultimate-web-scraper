@@ -9,7 +9,7 @@
 
 		public function __construct($prevstate = array())
 		{
-			if (!class_exists("HTTP"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
+			if (!class_exists("HTTP", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
 
 			$this->ResetState();
 			$this->SetState($prevstate);
@@ -520,7 +520,7 @@
 			$hintmap = array();
 			if ($this->html === false)
 			{
-				if (!class_exists("simple_html_dom"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/simple_html_dom.php";
+				if (!class_exists("simple_html_dom", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/simple_html_dom.php";
 
 				$this->html = new simple_html_dom();
 			}

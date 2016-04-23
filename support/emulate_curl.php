@@ -1,12 +1,14 @@
 <?php
 	// CubicleSoft PHP HTTP cURL emulation functions.
-	// (C) 2014 CubicleSoft.  All Rights Reserved.
+	// (C) 2016 CubicleSoft.  All Rights Reserved.
 
 	// cURL HTTP emulation support requires:
 	//   The CubicleSoft PHP HTTP functions.
 	//   The CubicleSoft Web Browser state emulation class.
 	if (!function_exists("curl_init"))
 	{
+		if (!class_exists("HTTP", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
+
 		global $curl_error__map, $curl_init__map, $curl_multi_init__map;
 
 		// Constants based on PHP 5.4.0 and libcurl 7.25.0.
@@ -418,6 +420,8 @@
 				CURLOPT_MAXREDIRS => 20,
 				CURLOPT_URL => $url
 			);
+
+			if (!class_exists("WebBrowser", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/web_browser.php";
 
 			$curl_init__map[$key] = array("self" => $ch, "method" => "GET", "options" => $options, "browser" => new WebBrowser(), "errorno" => CURLE_OK, "errorinfo" => "");
 

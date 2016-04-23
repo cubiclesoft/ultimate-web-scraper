@@ -102,12 +102,12 @@
 		{
 			$this->Disconnect();
 
-			if (class_exists("CSPRNG") && $this->csprng === false)  $this->csprng = new CSPRNG();
+			if (class_exists("CSPRNG", false) && $this->csprng === false)  $this->csprng = new CSPRNG();
 
 			if (isset($options["fp"]) && is_resource($options["fp"]))  $this->fp = $options["fp"];
 			else
 			{
-				if (!class_exists("WebBrowser"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/web_browser.php";
+				if (!class_exists("WebBrowser", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/web_browser.php";
 
 				// Use WebBrowser to initiate the connection.
 				if ($web === false)  $web = new WebBrowser();

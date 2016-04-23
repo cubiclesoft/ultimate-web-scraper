@@ -1061,7 +1061,7 @@
 										if (!$state["autodecode"])  $state["autodecode_ds"] = false;
 										else
 										{
-											if (!class_exists("DeflateStream"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
+											if (!class_exists("DeflateStream", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
 
 											// Since servers and browsers do everything wrong, ignore the encoding claim and attempt to auto-detect the encoding.
 											$state["autodecode_ds"] = new DeflateStream();

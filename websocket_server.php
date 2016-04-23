@@ -19,7 +19,7 @@
 
 		public function Reset()
 		{
-			if (!class_exists("WebSocket"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/websocket.php";
+			if (!class_exists("WebSocket", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/websocket.php";
 
 			$this->fp = false;
 			$this->clients = array();
