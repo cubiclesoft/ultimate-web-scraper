@@ -20,7 +20,7 @@
 
 		public function Reset()
 		{
-			if (!class_exists("HTTP"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
+			if (!class_exists("HTTP", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/http.php";
 
 			$this->fp = false;
 			$this->ssl = false;
@@ -63,7 +63,7 @@
 
 		public function EnableCompression($compress)
 		{
-			if (!class_exists("DeflateStream"))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
+			if (!class_exists("DeflateStream", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/deflate_stream.php";
 
 			$this->usegzip = (bool)$compress;
 		}
@@ -81,17 +81,26 @@
 
 		// Starts the server on the host and port.
 		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] and [fe80::1] for IPv6.
-		public function Start($host, $port, $sslcertfile = false)
+		public function Start($host, $port, $sslopts = false)
 		{
 			$this->Stop();
 
 			$context = stream_context_create();
 
-			if ($sslcertfile !== false)
+			if (!is_array($sslopts))
 			{
-				stream_context_set_option($context, "ssl", "local_cert", $sslcertfile);
+				// Mozilla Intermediate setting + !SSLv2 + !SSLv3
+				// Last updated April 22, 2016.
+				stream_context_set_option($context, "ssl", "ciphers", "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS:!SSLv2:!SSLv3");
+				stream_context_set_option($context, "ssl", "disable_compression", true);
 				stream_context_set_option($context, "ssl", "allow_self_signed", true);
 				stream_context_set_option($context, "ssl", "verify_peer", false);
+
+				// 'local_cert' and 'local_pk' are common options.
+				foreach ($sslopts as $key => $val)
+				{
+					stream_context_set_option($context, "ssl", $key, $val);
+				}
 
 				$this->ssl = true;
 			}
