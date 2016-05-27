@@ -87,7 +87,7 @@
 
 			$context = stream_context_create();
 
-			if (!is_array($sslopts))
+			if (is_array($sslopts))
 			{
 				// Mozilla Intermediate setting + !SSLv2 + !SSLv3
 				// Last updated April 22, 2016.
