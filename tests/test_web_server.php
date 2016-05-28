@@ -125,8 +125,12 @@
 
 						// Attempt to normalize input.
 						if (isset($client->contenthandled))  $data = $client->requestvars;
-						else if (is_resource($client->readdata))  $data = @json_decode(fread($client->readdata, 10000000), true);
-						else  $data = @json_decode($client->readdata, true);
+						else if (!is_object($client->readdata))  $data = @json_decode($client->readdata, true);
+						else
+						{
+							$client->readdata->Open();
+							$data = @json_decode($client->readdata->Read(1000000), true);
+						}
 
 						// Process the request.
 						$result2 = ProcessAPI($client->url, $data);

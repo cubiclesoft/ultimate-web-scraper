@@ -70,7 +70,7 @@
 
 		public function SetCacheDir($cachedir)
 		{
-			if ($cachdir !== false)
+			if ($cachedir !== false)
 			{
 				$cachedir = str_replace("\\", "/", $cachedir);
 				if (substr($cachedir, -1) !== "/")  $cachedir .= "/";
@@ -232,7 +232,7 @@
 
 			if ($body !== "")
 			{
-				if (is_resource($client->readdata))  fwrite($client->readdata, $body);
+				if (is_object($client->readdata))  $client->readdata->Write($body);
 				else
 				{
 					$client->readdata .= $body;
@@ -333,13 +333,17 @@
 													}
 													else if ($this->cachedir !== false && isset($client->mime_contentdisposition["filename"]) && $client->mime_contentdisposition["filename"] !== "")
 													{
+														if ($client->currfile !== false)  $client->files[$client->currfile]->Close();
+
 														$filename = $this->cachedir . $id . "_" . count($client->files) . ".dat";
 														$client->currfile = $filename;
 
-														$fp = fopen($filename, "w+b");
+														$tempfile = new WebServer_TempFile();
+														$tempfile->filename = $filename;
+														$tempfile->Open();
 
-														$client->files[$filename] = $fp;
-														$this->AddClientRecvHeader($id, $client->mime_contentdisposition["name"], $fp);
+														$client->files[$filename] = $tempfile;
+														$this->AddClientRecvHeader($id, $client->mime_contentdisposition["name"], $tempfile);
 
 														$client->mode = "handle_request_mime_content_file";
 													}
@@ -383,7 +387,7 @@
 
 							if ($pos)
 							{
-								if ($client->mode === "handle_request_mime_content_file")  fwrite($client->files[$client->currfile], substr($client->readdata, 0, $pos));
+								if ($client->mode === "handle_request_mime_content_file")  $client->files[$client->currfile]->Write(substr($client->readdata, 0, $pos));
 								else if ($client->mode === "handle_request_mime_content")
 								{
 									$client->mime_value .= substr($client->readdata, 0, $pos);
@@ -397,15 +401,16 @@
 						else if ($this->cachedir !== false && strlen($client->readdata) > 100000)
 						{
 							$filename = $this->cachedir . $id . ".dat";
-							if (!isset($client->files[$filename]))
-							{
-								$client->currfile = $filename;
+							$client->currfile = $filename;
 
-								$client->files[$filename] = fopen($filename, "w+b");
-							}
+							$tempfile = new WebServer_TempFile();
+							$tempfile->filename = $filename;
+							$tempfile->Open();
 
-							fwrite($client->files[$filename], $client->readdata);
-							$client->readdata = $client->files[$filename];
+							$client->files[$filename] = $tempfile;
+							$client->files[$filename]->Write($client->readdata);
+
+							$client->readdata = $tempfile;
 						}
 					}
 				}
@@ -502,6 +507,7 @@
 					$client->lastts = microtime(true);
 					$client->fp = $fp;
 					$client->ipaddr = stream_socket_get_name($fp, true);
+					$client->currfile = false;
 					$client->files = array();
 
 					$this->initclients[$this->nextclientid] = $client;
@@ -533,7 +539,7 @@
 						// Trigger the last variable to process when extracting form variables.
 						if ($client->contenttype !== false && $client->contenttype[""] === "application/x-www-form-urlencoded")  $this->ProcessClientRequestBody($result2["request"], "&", $id);
 
-						foreach ($client->files as $filename => $fp2)  fseek($fp2, 0, SEEK_SET);
+						if ($client->currfile !== false)  $client->files[$client->currfile]->Close();
 
 						$result["clients"][$id] = $client;
 
@@ -666,10 +672,9 @@
 							$client->deflate = false;
 							$client->writedata = "";
 
-							foreach ($client->files as $filename => $fp2)
+							foreach ($client->files as $filename => $tempfile)
 							{
-								@fclose($fp2);
-								@unlink($filename);
+								unset($client->files[$filename]);
 							}
 
 							$client->files = array();
@@ -817,6 +822,52 @@
 
 				unset($this->clients[$id]);
 			}
+		}
+	}
+
+	// Internal class used to construct file objects to minimize the number of open file handles.
+	// Otherwise an attacker could easily consume all available file handles in a single request.
+	class WebServer_TempFile
+	{
+		public $fp, $filename;
+
+		public function __destruct()
+		{
+			$this->Close();
+
+			@unlink($this->filename);
+		}
+
+		public function Open()
+		{
+			$this->Close();
+
+			$this->fp = @fopen($this->filename, "w+b");
+
+			return $this->fp;
+		}
+
+		public function Write($data)
+		{
+			fwrite($this->fp, $data);
+		}
+
+		public function Read($size)
+		{
+			if ($this->fp === false)  return false;
+
+			$data = @fread($this->fp, $size);
+			if ($data === false || feof($this->fp))  $this->Close();
+			if ($data === false)  $data = "";
+
+			return $data;
+		}
+
+		public function Close()
+		{
+			if (is_resource($this->fp))  @fclose($this->fp);
+
+			$this->fp = false;
 		}
 	}
 
