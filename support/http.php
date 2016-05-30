@@ -704,14 +704,20 @@
 								{
 									if ($state["proxysecure"] && isset($state["options"]["proxysslopts"]) && is_array($state["options"]["proxysslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
 									{
-										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("proxypeercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), &$state["options"]["debug_callback_opts"]));
+										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("proxypeercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))
+										{
+											return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+										}
 									}
 								}
 								else
 								{
 									if ($state["secure"] && isset($state["options"]["sslopts"]) && is_array($state["options"]["sslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
 									{
-										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("peercert", @openssl_x509_parse($contextopts["ssl"]["peer_certificate"]), &$state["options"]["debug_callback_opts"]));
+										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))
+										{
+											return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+										}
 									}
 								}
 							}
