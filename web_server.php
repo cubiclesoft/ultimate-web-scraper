@@ -338,6 +338,7 @@
 														$filename = $this->cachedir . $id . "_" . count($client->files) . ".dat";
 														$client->currfile = $filename;
 
+														@unlink($filename);
 														$tempfile = new WebServer_TempFile();
 														$tempfile->filename = $filename;
 														$tempfile->Open();
@@ -403,6 +404,7 @@
 							$filename = $this->cachedir . $id . ".dat";
 							$client->currfile = $filename;
 
+							@unlink($filename);
 							$tempfile = new WebServer_TempFile();
 							$tempfile->filename = $filename;
 							$tempfile->Open();
