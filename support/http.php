@@ -702,21 +702,23 @@
 								$contextopts = stream_context_get_options($state["fp"]);
 								if ($state["useproxy"])
 								{
-									if ($state["proxysecure"] && isset($state["options"]["proxysslopts"]) && is_array($state["options"]["proxysslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
+									if ($state["proxysecure"] && isset($state["options"]["proxysslopts"]) && is_array($state["options"]["proxysslopts"]))
 									{
-										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("proxypeercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))
+										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]))
 										{
-											return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+											if (isset($contextopts["ssl"]["peer_certificate"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("proxypeercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+											if (isset($contextopts["ssl"]["peer_certificate_chain"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("proxypeercertchain", $contextopts["ssl"]["peer_certificate_chain"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
 										}
 									}
 								}
 								else
 								{
-									if ($state["secure"] && isset($state["options"]["sslopts"]) && is_array($state["options"]["sslopts"]) && isset($contextopts["ssl"]["peer_certificate"]))
+									if ($state["secure"] && isset($state["options"]["sslopts"]) && is_array($state["options"]["sslopts"]))
 									{
-										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))
+										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]))
 										{
-											return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+											if (isset($contextopts["ssl"]["peer_certificate"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+											if (isset($contextopts["ssl"]["peer_certificate_chain"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercertchain", $contextopts["ssl"]["peer_certificate_chain"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
 										}
 									}
 								}
