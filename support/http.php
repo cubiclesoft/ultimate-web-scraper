@@ -1196,7 +1196,7 @@
 				$state["result"]["rawrecvheadersize"] += $state["rawrecvheadersize"];
 				$state["result"]["endts"] = microtime(true);
 
-				if ($state["close"])  fclose($state["fp"]);
+				if ($state["close"] || ($state["client"] && isset($state["result"]["headers"]["Connection"]) && strtolower($state["result"]["headers"]["Connection"][0]) === "close"))  fclose($state["fp"]);
 				else  $state["result"]["fp"] = $state["fp"];
 
 				return $state["result"];
