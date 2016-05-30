@@ -638,7 +638,7 @@
 
 						$client->AddResponseHeader("Date", gmdate("D, d M Y H:i:s T"), true);
 
-						if (!$client->keepalive)  $client->AddResponseHeader("Connection", "close", true);
+						if (!$client->keepalive || $client->requests >= $this->maxrequests)  $client->AddResponseHeader("Connection", "close", true);
 
 						foreach ($client->responseheaders as $name => $vals)
 						{
