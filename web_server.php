@@ -428,6 +428,7 @@
 			$client = $this->clients[$id];
 
 			$data .= $client->writedata;
+			$client->writedata = "";
 
 			if ($bodysize === false && $client->responsefinalized)  $bodysize = true;
 
@@ -550,6 +551,7 @@
 						$client->mode = "init_response";
 						$client->responseheaders = array();
 						$client->responsefinalized = false;
+						$client->responsebodysize = false;
 
 						$client->httpstate["type"] = "request";
 						$client->httpstate["startts"] = microtime(true);
@@ -631,6 +633,11 @@
 						{
 							$client->AddResponseHeader("Content-Length", (string)strlen($client->writedata), true);
 							$client->httpstate["bodysize"] = strlen($client->writedata);
+						}
+						else if ($client->responsebodysize !== false)
+						{
+							$client->AddResponseHeader("Content-Length", (string)$client->responsebodysize, true);
+							$client->httpstate["bodysize"] = $client->responsebodysize;
 						}
 						else if ($client->keepalive)
 						{
@@ -979,6 +986,16 @@
 					if (!isset($this->responseheaders[$name]) || $replace)  $this->responseheaders[$name] = array();
 					foreach ($vals as $val)  $this->responseheaders[$name][] = $val;
 				}
+			}
+		}
+
+		public function SetResponseContentLength($bodysize)
+		{
+			if ($this->requestcomplete && !$this->responsefinalized)
+			{
+				$this->responsebodysize = $bodysize;
+
+				if ($this->mode !== "handle_response")  $this->mode = "response_ready";
 			}
 		}
 
