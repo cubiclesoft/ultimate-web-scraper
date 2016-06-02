@@ -310,7 +310,7 @@
 												{
 													$pos = strpos($header, ":");
 													if ($pos === false)  $pos = strlen($header);
-													$client->lastmimeheader = self::HeaderNameCleanup(substr($header, 0, $pos));
+													$client->lastmimeheader = HTTP::HeaderNameCleanup(substr($header, 0, $pos));
 													$client->mimeheaders[$client->lastmimeheader] = ltrim(substr($header, $pos + 1));
 												}
 
