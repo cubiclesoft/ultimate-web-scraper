@@ -242,8 +242,6 @@
 					{
 						if ($client->contenttype[""] === "application/x-www-form-urlencoded")
 						{
-							$client->contenthandled = true;
-
 							$pos = 0;
 							$pos2 = strpos($client->readdata, "&");
 							while ($pos2 !== false)
@@ -273,8 +271,6 @@
 						}
 						else if ($client->contenttype[""] === "multipart/form-data" && isset($client->contenttype["boundary"]))
 						{
-							$client->contenthandled = true;
-
 							$pos = 0;
 							do
 							{
@@ -401,6 +397,8 @@
 						}
 						else if ($this->cachedir !== false && strlen($client->readdata) > 100000)
 						{
+							$client->contenthandled = false;
+
 							$filename = $this->cachedir . $id . ".dat";
 							$client->currfile = $filename;
 
@@ -413,6 +411,10 @@
 							$client->files[$filename]->Write($client->readdata);
 
 							$client->readdata = $tempfile;
+						}
+						else
+						{
+							$client->contenthandled = false;
 						}
 					}
 				}
@@ -465,6 +467,61 @@
 			}
 		}
 
+		// Sometimes keyed arrays don't work properly.
+		public static function FixedStreamSelect(&$readfps, &$writefps, &$exceptfps, $timeout)
+		{
+			// In order to correctly detect bad outputs, no '0' integer key is allowed.
+			if (isset($readfps[0]) || isset($writefps[0]) || ($exceptfps !== NULL && isset($exceptfps[0])))  return false;
+
+			$origreadfps = $readfps;
+			$origwritefps = $writefps;
+			$origexceptfps = $exceptfps;
+
+			$result2 = @stream_select($readfps, $writefps, $exceptfps, $timeout);
+			if ($result2 === false)  return false;
+
+			if (isset($readfps[0]))
+			{
+				$fps = array();
+				foreach ($origreadfps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($readfps as $num => $fp)
+				{
+					$readfps[$fps[(int)$fp]] = $fp;
+
+					unset($readfps[$num]);
+				}
+			}
+
+			if (isset($writefps[0]))
+			{
+				$fps = array();
+				foreach ($origwritefps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($writefps as $num => $fp)
+				{
+					$writefps[$fps[(int)$fp]] = $fp;
+
+					unset($writefps[$num]);
+				}
+			}
+
+			if ($exceptfps !== NULL && isset($exceptfps[0]))
+			{
+				$fps = array();
+				foreach ($origexceptfps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($exceptfps as $num => $fp)
+				{
+					$exceptfps[$fps[(int)$fp]] = $fp;
+
+					unset($exceptfps[$num]);
+				}
+			}
+
+			return true;
+		}
+
 		// Handles new connections, the initial conversation, basic packet management, rate limits, and timeouts.
 		// Can wait on more streams than just sockets and/or more sockets.  Useful for waiting on other resources.
 		// 'http_s' and the 'http_c_' prefix are reserved.
@@ -476,7 +533,7 @@
 			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array());
 			if (!count($readfps) && !count($writefps))  return $result;
 
-			$result2 = @stream_select($readfps, $writefps, $exceptfps, $timeout);
+			$result2 = self::FixedStreamSelect($readfps, $writefps, $exceptfps, $timeout);
 			if ($result2 === false)  return array("success" => false, "error" => HTTP::HTTPTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
 			// Handle new connections.
@@ -497,7 +554,7 @@
 					$client->url = "";
 					$client->headers = false;
 					$client->contenttype = false;
-					$client->contenthandled = false;
+					$client->contenthandled = true;
 					$client->cookievars = false;
 					$client->requestvars = false;
 					$client->requestcomplete = false;
@@ -674,7 +731,7 @@
 							$client->url = "";
 							$client->headers = false;
 							$client->contenttype = false;
-							$client->contenthandled = false;
+							$client->contenthandled = true;
 							$client->cookievars = false;
 							$client->requestvars = false;
 							$client->requestcomplete = false;

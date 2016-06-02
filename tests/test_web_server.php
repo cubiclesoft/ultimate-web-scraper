@@ -124,7 +124,7 @@
 						echo "Sending API response.\n";
 
 						// Attempt to normalize input.
-						if (isset($client->contenthandled))  $data = $client->requestvars;
+						if ($client->contenthandled)  $data = $client->requestvars;
 						else if (!is_object($client->readdata))  $data = @json_decode($client->readdata, true);
 						else
 						{

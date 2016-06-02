@@ -201,6 +201,61 @@
 			}
 		}
 
+		// Sometimes keyed arrays don't work properly.
+		public static function FixedStreamSelect(&$readfps, &$writefps, &$exceptfps, $timeout)
+		{
+			// In order to correctly detect bad outputs, no '0' integer key is allowed.
+			if (isset($readfps[0]) || isset($writefps[0]) || ($exceptfps !== NULL && isset($exceptfps[0])))  return false;
+
+			$origreadfps = $readfps;
+			$origwritefps = $writefps;
+			$origexceptfps = $exceptfps;
+
+			$result2 = @stream_select($readfps, $writefps, $exceptfps, $timeout);
+			if ($result2 === false)  return false;
+
+			if (isset($readfps[0]))
+			{
+				$fps = array();
+				foreach ($origreadfps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($readfps as $num => $fp)
+				{
+					$readfps[$fps[(int)$fp]] = $fp;
+
+					unset($readfps[$num]);
+				}
+			}
+
+			if (isset($writefps[0]))
+			{
+				$fps = array();
+				foreach ($origwritefps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($writefps as $num => $fp)
+				{
+					$writefps[$fps[(int)$fp]] = $fp;
+
+					unset($writefps[$num]);
+				}
+			}
+
+			if ($exceptfps !== NULL && isset($exceptfps[0]))
+			{
+				$fps = array();
+				foreach ($origexceptfps as $key => $fp)  $fps[(int)$fp] = $key;
+
+				foreach ($exceptfps as $num => $fp)
+				{
+					$exceptfps[$fps[(int)$fp]] = $fp;
+
+					unset($exceptfps[$num]);
+				}
+			}
+
+			return true;
+		}
+
 		// Handles new connections, the initial conversation, basic packet management, and timeouts.
 		// Can wait on more streams than just sockets and/or more sockets.  Useful for waiting on other resources.
 		// 'ws_s' and the 'ws_c_' prefix are reserved.
@@ -212,7 +267,7 @@
 			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array());
 			if (!count($readfps) && !count($writefps))  return $result;
 
-			$result2 = @stream_select($readfps, $writefps, $exceptfps, $timeout);
+			$result2 = self::FixedStreamSelect($readfps, $writefps, $exceptfps, $timeout);
 			if ($result2 === false)  return array("success" => false, "error" => self::WSTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
 			// Handle new connections.
