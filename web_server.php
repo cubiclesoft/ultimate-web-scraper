@@ -308,21 +308,21 @@
 												if ($client->lastmimeheader != "" && (substr($header, 0, 1) == " " || substr($header, 0, 1) == "\t"))  $client->mimeheaders[$client->lastmimeheader] .= $header;
 												else
 												{
-													$pos = strpos($header, ":");
-													if ($pos === false)  $pos = strlen($header);
-													$client->lastmimeheader = HTTP::HeaderNameCleanup(substr($header, 0, $pos));
-													$client->mimeheaders[$client->lastmimeheader] = ltrim(substr($header, $pos + 1));
+													$pos2 = strpos($header, ":");
+													if ($pos2 === false)  $pos2 = strlen($header);
+													$client->lastmimeheader = HTTP::HeaderNameCleanup(substr($header, 0, $pos2));
+													$client->mimeheaders[$client->lastmimeheader] = ltrim(substr($header, $pos2 + 1));
 												}
 
 												if (isset($client->httpstate["options"]["maxheaders"]) && count($client->mimeheaders) > $client->httpstate["options"]["maxheaders"])  return false;
 											}
 											else
 											{
-												$client->mode = "handle_request_mime_content";
 												if (!isset($client->mimeheaders["Content-Disposition"]))  $client->mode = "handle_request_mime_content_skip";
 												else
 												{
 													$client->mime_contentdisposition = HTTP::ExtractHeader($client->mimeheaders["Content-Disposition"]);
+
 													if ($client->mime_contentdisposition[""] !== "form-data" || !isset($client->mime_contentdisposition["name"]) || $client->mime_contentdisposition["name"] === "")
 													{
 														$client->mode = "handle_request_mime_content_skip";
@@ -362,19 +362,33 @@
 									case "handle_request_mime_content_file":
 									case "handle_request_mime_content":
 									{
-										while (($pos2 = strpos($client->readdata, "\n", $pos)) !== false)
+										$pos3 = $pos2 = strpos($client->readdata, "\r\n--" . $client->contenttype["boundary"], $pos);
+										if ($pos3 === false)
 										{
-											$str = substr($client->readdata, $pos, $pos2 - $pos);
-											if (rtrim($str) === "--" . $client->contenttype["boundary"] . "--" || rtrim($str) === "--" . $client->contenttype["boundary"])
-											{
-												if ($client->mode === "handle_request_mime_content")  $this->AddClientRecvHeader($id, $client->mime_contentdisposition["name"], $client->mime_value);
+											$pos3 = strlen($client->readdata) - strlen($client->contenttype["boundary"]) - 6;
+											if ($pos3 < $pos)  $pos3 = $pos;
+										}
 
-												$client->mode = "handle_request";
-											}
-											else
+										$data = (string)substr($client->readdata, $pos, $pos3 - $pos);
+										if ($data !== "")
+										{
+											if ($origmode === "handle_request_mime_content_file")  $client->files[$client->currfile]->Write($data);
+											else if ($origmode === "handle_request_mime_content")
 											{
-												$pos = $pos2 + 1;
+												$client->mime_value .= $data;
+
+												if (strlen($client->mime_value) > 262144)  return false;
 											}
+										}
+
+										if ($pos2 === false)  $pos = $pos3;
+										else
+										{
+											if ($client->mode === "handle_request_mime_content")  $this->AddClientRecvHeader($id, $client->mime_contentdisposition["name"], $client->mime_value);
+
+											$client->mode = "handle_request";
+
+											$pos = $pos2 + 2;
 										}
 
 										break;
@@ -382,18 +396,7 @@
 								}
 							} while ($origmode !== $client->mode);
 
-							if ($pos)
-							{
-								if ($client->mode === "handle_request_mime_content_file")  $client->files[$client->currfile]->Write(substr($client->readdata, 0, $pos));
-								else if ($client->mode === "handle_request_mime_content")
-								{
-									$client->mime_value .= substr($client->readdata, 0, $pos);
-
-									if (strlen($client->mime_value) > 262144)  return false;
-								}
-
-								$client->readdata = substr($client->readdata, $pos);
-							}
+							if ($pos)  $client->readdata = (string)substr($client->readdata, $pos);
 						}
 						else if ($this->cachedir !== false && strlen($client->readdata) > 100000)
 						{
@@ -599,7 +602,12 @@
 						// Trigger the last variable to process when extracting form variables.
 						if ($client->contenttype !== false && $client->contenttype[""] === "application/x-www-form-urlencoded")  $this->ProcessClientRequestBody($result2["request"], "&", $id);
 
-						if ($client->currfile !== false)  $client->files[$client->currfile]->Close();
+						if ($client->currfile !== false)
+						{
+							$client->files[$client->currfile]->Close();
+
+							$client->currfile = false;
+						}
 
 						$result["clients"][$id] = $client;
 
@@ -720,7 +728,10 @@
 					$result2 = HTTP::ProcessState($client->httpstate);
 					if ($result2["success"])
 					{
-						if (!$client->responsefinalized)  $result["clients"][$id] = $client;
+						if (!$client->responsefinalized)
+						{
+							$result["clients"][$id] = $client;
+						}
 						else if ($client->keepalive && $client->requests < $this->maxrequests)
 						{
 							// Reset client.
@@ -794,6 +805,7 @@
 							// Use the HTTP class in server mode to handle state.
 							// The callback functions are located in WebServer to avoid the issue of pass-by-reference memory leaks.
 							$options = $this->defaultclientoptions;
+							$options["async"] = true;
 							$options["read_headers_callback"] = array($this, "ProcessClientRequestHeaders");
 							$options["read_headers_callback_opts"] = $id;
 							$options["read_body_callback"] = array($this, "ProcessClientRequestBody");

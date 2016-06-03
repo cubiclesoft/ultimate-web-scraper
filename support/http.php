@@ -540,7 +540,8 @@
 				$data2 = @fgets($state["fp"], 116000);
 				if ($data2 === false || $data2 === "")
 				{
-					if ($state["async"])  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
+					if (feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
+					else if ($state["async"])  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking read returned no data."), "errorcode" => "no_data");
 					else if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
 				}
 				$pos = strpos($data2, "\n");
