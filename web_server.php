@@ -624,6 +624,7 @@
 						$client->httpstate["data"] = "";
 						$client->httpstate["bodysize"] = false;
 						$client->httpstate["chunked"] = false;
+						$client->httpstate["secure"] = $this->ssl;
 						$client->httpstate["state"] = "send_data";
 
 						$client->SetResponseCode(200);

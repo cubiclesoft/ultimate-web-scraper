@@ -611,7 +611,20 @@
 		{
 			if ($state[$prefix . "data"] !== "")
 			{
-				$result = @fwrite($state["fp"], $state[$prefix . "data"]);
+				// Serious bug in PHP core for non-blocking SSL sockets:  https://bugs.php.net/bug.php?id=72333
+				if ($state["secure"] && $state["async"])
+				{
+					// This is a huge hack that has a pretty good chance of blocking on the socket.
+					// Peeling off up to just 4KB at a time helps to minimize that possibility.  It's better than guaranteed failure of the socket though.
+					@stream_set_blocking($state["fp"], 1);
+					$result = @fwrite($state["fp"], (strlen($state[$prefix . "data"]) > 4096 ? substr($state[$prefix . "data"], 0, 4096) : $state[$prefix . "data"]));
+					@stream_set_blocking($state["fp"], 0);
+				}
+				else
+				{
+					$result = @fwrite($state["fp"], $state[$prefix . "data"]);
+				}
+
 				if ($result === false || feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("A fwrite() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
 				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
@@ -629,6 +642,8 @@
 
 				if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("rawsend", $data2, &$state["options"]["debug_callback_opts"]));
 				else if ($state["debug"])  $state["result"]["rawsend"] .= $data2;
+
+				if ($state["async"] && strlen($state[$prefix . "data"]))  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking write did not send all data."), "errorcode" => "no_data");
 			}
 
 			return array("success" => true);
