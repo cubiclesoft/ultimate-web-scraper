@@ -1234,26 +1234,47 @@
 				if ($fp === false)  return 0;
 			}
 
-			$pos = 0;
-			$size = 1073741824;
-			fseek($fp, 0, SEEK_SET);
-			while ($size > 1)
+			if (PHP_INT_SIZE < 8)
 			{
-				fseek($fp, $size, SEEK_CUR);
-
-				if (fgetc($fp) === false)
+				$pos = 0;
+				$size = 1073741824;
+				fseek($fp, 0, SEEK_SET);
+				while ($size > 1)
 				{
-					fseek($fp, -$size, SEEK_CUR);
-					$size = (int)($size / 2);
+					if (fseek($fp, $size, SEEK_CUR) === -1)  break;
+
+					if (fgetc($fp) === false)
+					{
+						fseek($fp, -$size, SEEK_CUR);
+						$size = (int)($size / 2);
+					}
+					else
+					{
+						fseek($fp, -1, SEEK_CUR);
+						$pos += $size;
+					}
+				}
+
+				if ($size > 1)
+				{
+					// Unfortunately, fseek() failed for some reason.  Going to have to do this the old-fashioned way.
+					do
+					{
+						$data = fread($fp, 10485760);
+						if ($data === false)  $data = "";
+						$pos += strlen($data);
+					} while ($data !== "");
 				}
 				else
 				{
-					fseek($fp, -1, SEEK_CUR);
-					$pos += $size;
+					while (fgetc($fp) !== false)  $pos++;
 				}
 			}
-
-			while (fgetc($fp) !== false)  $pos++;
+			else
+			{
+				fseek($fp, 0, SEEK_END);
+				$pos = ftell($fp);
+			}
 
 			if (!is_resource($fileorname))  fclose($fp);
 
