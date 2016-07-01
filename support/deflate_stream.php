@@ -19,22 +19,22 @@
 
 		public static function IsSupported()
 		{
-			if (!is_bool(DeflateStream::$supported))
+			if (!is_bool(self::$supported))
 			{
-				DeflateStream::$supported = function_exists("stream_filter_append") && function_exists("stream_filter_remove") && function_exists("gzcompress");
-				if (DeflateStream::$supported)
+				self::$supported = function_exists("stream_filter_append") && function_exists("stream_filter_remove") && function_exists("gzcompress");
+				if (self::$supported)
 				{
-					$data = DeflateStream::Compress("test");
-					if ($data === false || $data === "")  DeflateStream::$supported = false;
+					$data = self::Compress("test");
+					if ($data === false || $data === "")  self::$supported = false;
 					else
 					{
-						$data = DeflateStream::Uncompress($data);
-						if ($data === false || $data !== "test")  DeflateStream::$supported = false;
+						$data = self::Uncompress($data);
+						if ($data === false || $data !== "test")  self::$supported = false;
 					}
 				}
 			}
 
-			return DeflateStream::$supported;
+			return self::$supported;
 		}
 
 		public static function Compress($data, $compresslevel = -1, $options = array())
