@@ -583,6 +583,8 @@
 			{
 				case "input":
 				{
+					if (!isset($row->name) && ($row->type === "submit" || $row->type === "image"))  $row->name = "";
+
 					if (isset($row->name) && is_string($row->name))
 					{
 						$field = array(
@@ -1096,8 +1098,11 @@
 				{
 					if (($submitname === false || $field["name"] === $submitname) && ($submitvalue === false || $field["value"] === $submitvalue))
 					{
-						if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
-						$fields[$field["name"]][] = $field["value"];
+						if ($submitname !== "")
+						{
+							if (!isset($fields[$field["name"]]))  $fields[$field["name"]] = array();
+							$fields[$field["name"]][] = $field["value"];
+						}
 
 						if ($field["type"] == "input.image")
 						{
