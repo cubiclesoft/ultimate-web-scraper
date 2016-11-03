@@ -10,6 +10,7 @@
 		private $fp, $client, $extensions, $csprng, $state, $closemode;
 		private $readdata, $maxreadframesize, $readmessages, $maxreadmessagesize;
 		private $writedata, $writemessages, $keepalive, $lastkeepalive, $keepalivesent;
+		private $rawrecvsize, $rawsendsize;
 
 		const KEY_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -56,6 +57,8 @@
 			$this->keepalive = 30;
 			$this->lastkeepalive = time();
 			$this->keepalivesent = false;
+			$this->rawrecvsize = 0;
+			$this->rawsendsize = 0;
 		}
 
 		public function SetServerMode()
@@ -96,6 +99,16 @@
 		public function SetMaxReadMessageSize($maxsize)
 		{
 			$this->maxreadmessagesize = (is_bool($maxsize) ? false : (int)$maxsize);
+		}
+
+		public function GetRawRecvSize()
+		{
+			return $this->rawrecvsize;
+		}
+
+		public function GetRawSendSize()
+		{
+			return $this->rawsendsize;
 		}
 
 		public function Connect($url, $origin, $profile = "auto", $options = array(), $web = false)
@@ -154,6 +167,8 @@
 			$this->writemessages = array();
 			$this->lastkeepalive = time();
 			$this->keepalivesent = false;
+			$this->rawrecvsize = 0;
+			$this->rawsendsize = 0;
 
 			return array("success" => true);
 		}
@@ -309,6 +324,7 @@
 
 				if ($result !== "")
 				{
+					$this->rawrecvsize += strlen($result);
 					$this->readdata .= $result;
 
 					if ($this->maxreadframesize !== false && strlen($this->readdata) > $this->maxreadframesize)  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to peer sending a single frame exceeding %s bytes of data.", $this->maxreadframesize), "errorcode" => "max_read_frame_size_exceeded");
@@ -326,6 +342,7 @@
 				$result = @fwrite($this->fp, $this->writedata);
 				if ($result === false || feof($this->fp))  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
 
+				$this->rawsendsize += strlen($result);
 				$this->writedata = (string)substr($this->writedata, $result);
 			}
 

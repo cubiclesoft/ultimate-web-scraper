@@ -1408,7 +1408,7 @@
 				$bodysize = strlen($body);
 				unset($options["body"]);
 			}
-			else if (isset($options["files"]) && count($options["files"]))
+			else if ((isset($options["files"]) && count($options["files"])) || (isset($options["headers"]["Content-Type"]) && stripos($options["headers"]["Content-Type"], "multipart/form-data") !== false))
 			{
 				$mime = "--------" . substr(sha1(uniqid(mt_rand(), true)), 0, 25);
 				$data .= "Content-Type: multipart/form-data; boundary=" . $mime . "\r\n";
@@ -1435,6 +1435,7 @@
 				$bodysize = strlen($body);
 
 				// Only count the amount of data to send.
+				if (!isset($options["files"]))  $options["files"] = array();
 				foreach ($options["files"] as $num => $info)
 				{
 					$name = self::HeaderValueCleanup($info["name"]);
