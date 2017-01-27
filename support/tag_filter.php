@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP Tag Filter class.  Can repair broken HTML.
-	// (C) 2015 CubicleSoft.  All Rights Reserved.
+	// (C) 2017 CubicleSoft.  All Rights Reserved.
 
 	class TagFilterStream
 	{
@@ -18,6 +18,8 @@
 			if (!isset($options["allow_namespaces"]))  $options["allow_namespaces"] = true;
 			if (!isset($options["process_attrs"]))  $options["process_attrs"] = array();
 			if (!isset($options["charset"]))  $options["charset"] = "UTF-8";
+			if (!isset($options["tag_name_map"]))  $options["tag_name_map"] = array();
+			if (!isset($options["untouched_tag_attr_keys"]))  $options["untouched_tag_attr_keys"] = array();
 			if (!isset($options["void_tags"]))  $options["void_tags"] = array();
 			if (!isset($options["pre_close_tags"]))  $options["pre_close_tags"] = array();
 			if (!isset($options["output_mode"]))  $options["output_mode"] = "html";
@@ -201,6 +203,13 @@
 								{
 									$pos = strpos($content, $content{$x}, $x + 1);
 									if ($pos === false)  $content .= $content{$x};
+									else if (isset($this->options["untouched_tag_attr_keys"][$tagname]))
+									{
+										$keyname = substr($content, $x, $pos - $x + 1);
+										$cx = $pos + 1;
+
+										$state = "equals";
+									}
 									else
 									{
 										$keyname = substr($content, $x + 1, $pos - $x - 1);
@@ -238,7 +247,7 @@
 										}
 
 										$keyname = rtrim(substr($content, $x, $cx - $x), "-:");
-										if ($this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
+										if (!isset($this->options["untouched_tag_attr_keys"][$tagname]) && $this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
 
 										$state = "equals";
 
@@ -468,7 +477,7 @@
 
 					if ($cx < $cy && $content{$cx} === ">")  $cx++;
 
-					if ($prefix === "!" && $tagname === "doctype")  $tagname = "DOCTYPE";
+					if (isset($this->options["tag_name_map"][$prefix . $tagname]))  $outtagname = $tagname = $this->options["tag_name_map"][$prefix . $tagname];
 
 					if ($tagname != "")
 					{
@@ -632,7 +641,14 @@
 		public static function GetHTMLOptions()
 		{
 			$result = array(
+				"tag_name_map" => array(
+					"!doctype" => "DOCTYPE"
+				),
+				"untouched_tag_attr_keys" => array(
+					"doctype" => true,
+				),
 				"void_tags" => array(
+					"DOCTYPE" => true,
 					"area" => true,
 					"base" => true,
 					"bgsound" => true,
