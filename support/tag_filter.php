@@ -787,6 +787,99 @@
 			return $result;
 		}
 
+		public static function HTMLPurifyTagCallback($stack, &$content, $open, $tagname, &$attrs, $options)
+		{
+			if ($open)
+			{
+				if ($tagname === "script")  return array("keep_tag" => false, "keep_interior" => false);
+				if ($tagname === "style")  return array("keep_tag" => false, "keep_interior" => false);
+
+				if (isset($attrs["src"]) && substr($attrs["src"], 0, 11) === "javascript:")  return array("keep_tag" => false, "keep_interior" => false);
+				if (isset($attrs["href"]) && substr($attrs["href"], 0, 11) === "javascript:")  return array("keep_tag" => false);
+
+				if (!isset($options["htmlpurify"]["allowed_tags"][$tagname]))  return array("keep_tag" => false);
+
+				if (!isset($options["htmlpurify"]["allowed_attrs"][$tagname]))  $attrs = array();
+				else
+				{
+					// For classes, "class" needs to be specified as an allowed attribute.
+					foreach ($attrs as $attr => $val)
+					{
+						if (!isset($options["htmlpurify"]["allowed_attrs"][$tagname][$attr]))  unset($attrs[$attr]);
+					}
+				}
+
+				if (isset($options["htmlpurify"]["required_attrs"][$tagname]))
+				{
+					foreach ($options["htmlpurify"]["required_attrs"][$tagname] as $attr => $val)
+					{
+						if (!isset($attrs[$attr]))  return array("keep_tag" => false);
+					}
+				}
+
+				if (isset($attrs["class"]))
+				{
+					if (!isset($options["htmlpurify"]["allowed_classes"][$tagname]))  unset($attrs["class"]);
+					else
+					{
+						foreach ($attrs["class"] as $class)
+						{
+							if (!isset($options["htmlpurify"]["allowed_classes"][$tagname][$class]))  unset($attrs["class"][$class]);
+						}
+
+						if (!count($attrs["class"]))  unset($attrs["class"]);
+					}
+				}
+			}
+			else
+			{
+				if (isset($options["htmlpurify"]["remove_empty"][substr($tagname, 1)]) && trim($content) === "")  return array("keep_tag" => false);
+			}
+
+			return array();
+		}
+
+		private static function Internal_NormalizeHTMLPurifyOptions($value)
+		{
+			if (is_string($value))
+			{
+				$opts = explode(",", $value);
+				$value = array();
+				foreach ($opts as $opt)
+				{
+					$opt = (string)trim($opt);
+					if ($opt !== "")  $value[$opt] = true;
+				}
+			}
+
+			return $value;
+		}
+
+		public static function NormalizeHTMLPurifyOptions($purifyopts)
+		{
+			if (!isset($purifyopts["allowed_tags"]))  $purifyopts["allowed_tags"] = array();
+			if (!isset($purifyopts["allowed_attrs"]))  $purifyopts["allowed_attrs"] = array();
+			if (!isset($purifyopts["required_attrs"]))  $purifyopts["required_attrs"] = array();
+			if (!isset($purifyopts["allowed_classes"]))  $purifyopts["allowed_classes"] = array();
+			if (!isset($purifyopts["remove_empty"]))  $purifyopts["remove_empty"] = array();
+
+			$purifyopts["allowed_tags"] = self::Internal_NormalizeHTMLPurifyOptions($purifyopts["allowed_tags"]);
+			foreach ($purifyopts["allowed_attrs"] as $key => $val)  $purifyopts["allowed_attrs"][$key] = self::Internal_NormalizeHTMLPurifyOptions($val);
+			foreach ($purifyopts["required_attrs"] as $key => $val)  $purifyopts["required_attrs"][$key] = self::Internal_NormalizeHTMLPurifyOptions($val);
+			foreach ($purifyopts["allowed_classes"] as $key => $val)  $purifyopts["allowed_classes"][$key] = self::Internal_NormalizeHTMLPurifyOptions($val);
+			$purifyopts["remove_empty"] = self::Internal_NormalizeHTMLPurifyOptions($purifyopts["remove_empty"]);
+
+			return $purifyopts;
+		}
+
+		public static function HTMLPurify($content, $htmloptions, $purifyopts)
+		{
+			$htmloptions["tag_callback"] = "TagFilter::HTMLPurifyTagCallback";
+			$htmloptions["htmlpurify"] = self::NormalizeHTMLPurifyOptions($purifyopts);
+
+			return self::Run($content, $htmloptions);
+		}
+
 		public static function GetParentPos($stack, $tagname, $start = 0, $attrs = array())
 		{
 			$y = count($stack);

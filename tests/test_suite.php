@@ -1,6 +1,6 @@
 <?php
 	// Test suite.
-	// (C) 2016 CubicleSoft.  All Rights Reserved.
+	// (C) 2017 CubicleSoft.  All Rights Reserved.
 
 	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
 	{
@@ -16,70 +16,25 @@
 	require_once $rootpath . "/../support/tag_filter.php";
 	require_once $rootpath . "/../support/multi_async_helper.php";
 
-	function TestHTMLTagFilter($stack, &$content, $open, $tagname, &$attrs, $options)
-	{
-		if ($open)
-		{
-			if ($tagname === "script")  return array("keep_tag" => false, "keep_interior" => false);
-			else if ($tagname === "style")  return array("keep_tag" => false, "keep_interior" => false);
-			else if ($tagname === "img")
-			{
-				if (!isset($attrs["src"]) || substr($attrs["src"], 0, 11) === "javascript:")  return array("keep_tag" => false);
+	$htmloptions = TagFilter::GetHTMLOptions();
+	$purifyoptions = array(
+		"allowed_tags" => "img,a,p,br,b,strong,i,ul,ol,li",
+		"allowed_attrs" => array("img" => "src", "a" => "href,id", "p" => "class"),
+		"required_attrs" => array("img" => "src", "a" => "href"),
+		"allowed_classes" => array("p" => "allowedclass"),
+		"remove_empty" => "b,strong,i,ul,ol,li"
+	);
 
-				foreach ($attrs as $key => $val)
-				{
-					if ($key !== "src")  unset($attrs[$key]);
-				}
-			}
-			else if ($tagname === "a")
-			{
-				if (!isset($attrs["href"]) || substr($attrs["href"], 0, 11) === "javascript:")  return array("keep_tag" => false);
+	echo "Testing raw HTML cleanup\n";
+	echo "------------------------\n";
+	$testfile = file_get_contents($rootpath . "/test_xss.txt");
+	$pos = strpos($testfile, "@EXIT@");
+	if ($pos === false)  $pos = strlen($testfile);
+	$testfile = substr($testfile, 0, $pos);
 
-				foreach ($attrs as $key => $val)
-				{
-					if ($key !== "href")  unset($attrs[$key]);
-				}
-			}
-			else if ($tagname === "p")
-			{
-				foreach ($attrs as $key => $val)
-				{
-					if ($key !== "class")  unset($attrs[$key]);
-					else
-					{
-						foreach ($val as $class)
-						{
-							if ($class !== "allowedclass")  unset($val[$class]);
-						}
-
-						$attrs["class"] = $val;
-						if (!count($attrs["class"]))  unset($attrs["class"]);
-					}
-				}
-			}
-			else if ($tagname === "br" || $tagname === "b" || $tagname === "strong" || $tagname === "i" || $tagname === "ul" || $tagname === "ol" || $tagname === "li")
-			{
-				// Remove all attributes.
-				$attrs = array();
-			}
-			else
-			{
-				return array("keep_tag" => false);
-			}
-		}
-		else
-		{
-			if ($tagname === "/b" || $tagname === "/strong" || $tagname === "/i" || $tagname === "/ul" || $tagname === "/ol" || $tagname === "/li")
-			{
-				if (trim($content) === "")  return array("keep_tag" => false);
-			}
-		}
-
-		return array();
-	}
-
-	$options = TagFilter::GetHTMLOptions();
-	$options["tag_callback"] = "TestHTMLTagFilter";
+	$result = TagFilter::Run($testfile, $htmloptions);
+	echo $result . "\n\n";
+	echo "-------------------\n\n";
 
 	echo "Testing XSS removal\n";
 	echo "-------------------\n";
@@ -88,7 +43,7 @@
 	if ($pos === false)  $pos = strlen($testfile);
 	$testfile = substr($testfile, 0, $pos);
 
-	$result = TagFilter::Run($testfile, $options);
+	$result = TagFilter::HTMLPurify($testfile, $htmloptions, $purifyoptions);
 	echo $result . "\n\n";
 	echo "-------------------\n\n";
 
@@ -99,7 +54,7 @@
 	if ($pos === false)  $pos = strlen($testfile);
 	$testfile = substr($testfile, 0, $pos);
 
-	$result = TagFilter::Run($testfile, $options);
+	$result = TagFilter::HTMLPurify($testfile, $htmloptions, $purifyoptions);
 	echo $result . "\n\n";
 	echo "-------------------------\n\n";
 
