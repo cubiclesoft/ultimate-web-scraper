@@ -547,7 +547,8 @@
 										if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
 										else  $funcresult = array();
 
-										if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+										// Force close tag to be kept if the stream already output the open tag.
+										if (!isset($funcresult["keep_tag"]) || ($info["close_tag"] && $info["open_tag"] == ""))  $funcresult["keep_tag"] = true;
 
 										$info = array_shift($this->stack);
 
@@ -607,7 +608,8 @@
 					if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
 					else  $funcresult = array();
 
-					if (!isset($funcresult["keep_tag"]))  $funcresult["keep_tag"] = true;
+					// Force close tag to be kept if the stream already output the open tag.
+					if (!isset($funcresult["keep_tag"]) || ($info["close_tag"] && $info["open_tag"] == ""))  $funcresult["keep_tag"] = true;
 
 					$info = array_shift($this->stack);
 
@@ -622,6 +624,32 @@
 		public function Finalize()
 		{
 			$this->final = true;
+		}
+
+		// To cleanly figure out how far in to flush output, call GetStack(true), use TagFilter::GetParentPos(), and call GetResult().
+		public function GetStack($invert = false)
+		{
+			return ($invert ? array_reverse($this->stack) : $this->stack);
+		}
+
+		// Returns the result so far up to the specified stack position and flushes the stored output to keep RAM usage low.
+		// NOTE:  Callback functions returning 'keep_tag' of false for the closing tag won't work for tags that were already output using this function.
+		public function GetResult($invertedstackpos)
+		{
+			$y = count($this->stack);
+			$pos = $y - $invertedstackpos - 1;
+			if ($pos < 0)  $pos = 0;
+
+			$result = "";
+			for ($x = $y - 1; $x >= $pos; $x--)
+			{
+				$result .= $this->stack[$x]["result"] . $this->stack[$x]["open_tag"];
+
+				$this->stack[$x]["result"] = "";
+				$this->stack[$x]["open_tag"] = "";
+			}
+
+			return $result;
 		}
 
 		protected static function UTF8Chr($num)
