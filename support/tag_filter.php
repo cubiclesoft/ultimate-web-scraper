@@ -4,7 +4,7 @@
 
 	class TagFilterStream
 	{
-		protected $lastcontent, $final, $options, $stack;
+		protected $lastcontent, $lastresult, $final, $options, $stack;
 
 		public function __construct($options = array())
 		{
@@ -27,6 +27,7 @@
 			if (!isset($options["lowercase_attrs"]))  $options["lowercase_attrs"] = true;
 
 			$this->lastcontent = "";
+			$this->lastresult = "";
 			$this->final = false;
 			$this->options = $options;
 			$this->stack = array();
@@ -36,7 +37,8 @@
 		{
 			if ($this->lastcontent !== "")  $content = $this->lastcontent . $content;
 
-			$result = "";
+			$result = $this->lastresult;
+			$this->lastresult = "";
 			$tag = false;
 			$a = ord("A");
 			$a2 = ord("a");
@@ -469,6 +471,8 @@
 					if ($cx >= $cy && !$this->final)
 					{
 						$this->lastcontent = substr($content, $firstcx);
+						$this->lastresult = $result;
+						$result = "";
 
 						break;
 					}
@@ -647,6 +651,12 @@
 
 				$this->stack[$x]["result"] = "";
 				$this->stack[$x]["open_tag"] = "";
+			}
+
+			if (!$pos)
+			{
+				$result .= $this->lastresult;
+				$this->lastresult = "";
 			}
 
 			return $result;
