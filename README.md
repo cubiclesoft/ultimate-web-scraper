@@ -20,7 +20,7 @@ Features
 * An impressive CSS3 selector tokenizer (TagFilter::ParseSelector()) that carefully follows the W3C Specification and passes the official W3C CSS3 static test suite.
 * Includes a fast and powerful tag filtering library (TagFilter) for correctly parsing really difficult HTML content (e.g. Microsoft Word HTML) and can easily extract desired content from HTML and XHTML using CSS3 compatible selectors.
 * TagFilter::HTMLPurify() produces XSS defense results on par with HTML Purifier but is faster, has a nicer license, and comes in a MUCH smaller package.
-* Includes the legacy Simple HTML DOM library to parse and extract desired content from HTML.  NOTE:  This library is only included for legacy reasons.  TagFilter is much faster and more accurate as well as more powerful and flexible.
+* Includes the legacy Simple HTML DOM library to parse and extract desired content from HTML.  NOTE:  Simple HTML DOM is only included for legacy reasons.  TagFilter is much faster and more accurate as well as more powerful and flexible.
 * An unncessarily feature-laden web server class with optional SSL/TLS support.  Run a web server written in pure PHP.  Why?  Because you can, that's why.
 * There is a WebSocket server class too.
 * Has a liberal open source license.  MIT or LGPL, your choice.
