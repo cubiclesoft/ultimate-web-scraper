@@ -92,6 +92,17 @@ Plain text
 
 <SCRIPT SRC="xss.jpg"></SCRIPT>
 
+<
+ScRiPt SrC  = "xss.jpg"
+
+""
+><
+/
+
+sCrIpT
+/bogus
+>
+
 <?xml:namespace prefix="t" ns="urn:schemas-microsoft-com:time">
 <?import namespace="t" implementation="#default#time2">
 <t:set attributeName="innerHTML" to="XSS<SCRIPT DEFER>alert("XSS")</SCRIPT>">
@@ -105,8 +116,10 @@ Plain text
 <SCRIPT>document.write("<SCRI");</SCRIPT>PT SRC="xss.js"></SCRIPT>
 
 <script type="text/javascript">
-document.write('<p>Don\'t mangle me!</p>');
-document.write('<script></script>');
 document.write('<p>Don\'t include me!</p>');
-</script>
-<p class=" otherclass allowedclass otherclass2  ">But do include me!</p>
+document.write('<script></script>');
+document.write('<p>But include me!</p>');
+//document.write('< /
+script bogus
+>
+<p class=" otherclass allowedclass otherclass2  ">Also include me!</p>
