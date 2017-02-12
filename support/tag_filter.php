@@ -203,6 +203,7 @@
 
 					// Process attributes/properties until a closing condition is encountered.
 					$state = "key";
+					$voidtag = false;
 					$attrs = array();
 					do
 					{
@@ -220,6 +221,19 @@
 									$state = "exit";
 
 									break;
+								}
+								else if ($content{$x} === "/")
+								{
+									$pos = strpos($content, ">", $x + 1);
+									if ($pos !== false && trim(substr($content, $x + 1, $pos - $x - 1)) === "")
+									{
+										$cx = $x;
+										$voidtag = true;
+
+										$state = "exit";
+
+										break;
+									}
 								}
 								else if ($content{$x} === "\"" || $content{$x} === "'" || $content{$x} === "`")
 								{
@@ -533,7 +547,7 @@
 							if (isset($this->options["void_tags"][$tagname]) && $this->options["output_mode"] === "xml")  $opentag .= " /";
 							$opentag .= ">";
 
-							if (!isset($this->options["void_tags"][$tagname]) && $prefix === "")
+							if (!$voidtag && !isset($this->options["void_tags"][$tagname]) && $prefix === "")
 							{
 								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
@@ -544,7 +558,7 @@
 								$result .= $funcresult["post_tag"];
 							}
 						}
-						else if (!isset($this->options["void_tags"][$tagname]))
+						else if (!$voidtag && !isset($this->options["void_tags"][$tagname]))
 						{
 							if ($open)
 							{
