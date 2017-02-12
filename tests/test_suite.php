@@ -311,6 +311,12 @@
 	DisplayTFNFindResult("Find('span')", $tfn, $tfn->Find("span"));
 	DisplayTFNFindResult("Find('p')", $tfn, $tfn->Find("p"));
 
+	DisplayTFNFindResult("Find('p:first-of-type')", $tfn, $tfn->Find("p:first-of-type"));
+	DisplayTFNFindResult("Find('p:last-of-type')", $tfn, $tfn->Find("p:last-of-type"));
+	DisplayTFNFindResult("Find('a b:only-of-type')", $tfn, $tfn->Find("a b:only-of-type"));
+	DisplayTFNFindResult("Find('p:nth-of-type(1)')", $tfn, $tfn->Find("p:nth-of-type(1)"));
+	DisplayTFNFindResult("Find('p:nth-last-of-type(2)')", $tfn, $tfn->Find("p:nth-last-of-type(2)"));
+
 	echo "-------------------------\n\n";
 
 

@@ -801,7 +801,7 @@
 							$pc = $rules[$x]["pseudo"];
 							$valid = ($pc === "first-child" || $pc === "last-child" || $pc === "only-child" || $pc === "nth-child" || $pc === "nth-last-child" || $pc === "first-of-type" || $pc === "last-of-type" || $pc === "only-of-type" || $pc === "nth-of-type" || $pc === "nth-last-of-type" || $pc === "empty");
 
-							if ($valid && substr($rules[$x]["pseudo"], 0, 4) === "nth-" && (!isset($rules[$x]["pseudo"]["a"]) || !isset($rules[$x]["pseudo"]["b"])))  $valid = false;
+							if ($valid && substr($rules[$x]["pseudo"], 0, 4) === "nth-" && (!isset($rules[$x]["a"]) || !isset($rules[$x]["b"])))  $valid = false;
 
 							break;
 						}
@@ -934,7 +934,7 @@
 										$pnum = count($this->nodes[$pid]["children"]);
 
 										$nth = (substr($rules[$x][$x2]["pseudo"], 0, 4) === "nth-");
-										if ($nth && (!isset($rules[$x][$x2]["pseudo"]["a"]) || !isset($rules[$x][$x2]["pseudo"]["b"])))  return array("success" => false, "error" => "Pseudo-class ':" . $rules[$x][$x2]["pseudo"] . "(n)' requires an expression for 'n'.", "errorcode" => "missing_pseudo_class_expression");
+										if ($nth && (!isset($rules[$x][$x2]["a"]) || !isset($rules[$x][$x2]["b"])))  return array("success" => false, "error" => "Pseudo-class ':" . $rules[$x][$x2]["pseudo"] . "(n)' requires an expression for 'n'.", "errorcode" => "missing_pseudo_class_expression");
 
 										if (substr($rules[$x][$x2]["pseudo"], -8) === "-of-type")
 										{
@@ -959,7 +959,7 @@
 													if ($this->nodes[$id3]["type"] === "element")
 													{
 														$tag = $this->nodes[$id3]["tag"];
-														$oftypecache[$id3]["tx"] = $types[$tag];
+														$oftypecache[$id3]["ty"] = $types[$tag];
 													}
 												}
 											}
@@ -1003,10 +1003,10 @@
 											// Calculated expression:  a * n + b - 1 = x
 											// Solved for n:  n = (x + 1 - b) / a
 											// Where 'n' is a non-negative integer.  When 'a' is 0, solve for 'b' instead.
-											$pa = $rules[$x][$x2]["pseudo"]["a"];
-											$pb = $rules[$x][$x2]["pseudo"]["b"];
+											$pa = $rules[$x][$x2]["a"];
+											$pb = $rules[$x][$x2]["b"];
 
-											if ($pa == 0)  $backtrack = ($pb !== $px + 1);
+											if ($pa == 0)  $backtrack = ($pb != $px + 1);
 											else
 											{
 												$pn = (($px + 1 - $pb) / $pa);
