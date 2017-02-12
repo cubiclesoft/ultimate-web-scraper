@@ -245,12 +245,30 @@
 		{
 			echo "  " . $id . ":\n";
 			echo "    Tag:         " . $tfn->GetTag($id) . "\n";
-			echo "    Node:        " . json_encode($tfn->Get($id), JSON_UNESCAPED_SLASHES) . "\n";
+			echo "    Node:        " . json_encode($tfn->nodes[$id], JSON_UNESCAPED_SLASHES) . "\n";
 			echo "    Outer HTML:  " . $tfn->GetOuterHTML($id) . "\n";
 			echo "    Inner HTML:  " . $tfn->GetInnerHTML($id) . "\n";
 			echo "    Plain text:  " . $tfn->GetPlainText($id) . "\n";
 			if (isset($tfn->nodes[$id]["attrs"]["href"]))  echo "    href:        " . $tfn->nodes[$id]["attrs"]["href"] . "\n";
 			if (isset($tfn->nodes[$id]["attrs"]["src"]))  echo "    src:         " . $tfn->nodes[$id]["attrs"]["src"] . "\n";
+		}
+
+		echo "\n";
+	}
+
+	function DisplayOOTFNFindResults($msg, $results)
+	{
+		echo $msg . "\n";
+		foreach ($results as $id => $row)
+		{
+			echo "  " . $id . ":\n";
+			echo "    Tag:         " . $row->Tag($id) . "\n";
+			echo "    Node:        " . json_encode($row->Node(), JSON_UNESCAPED_SLASHES) . "\n";
+			echo "    Outer HTML:  " . $row->GetOuterHTML() . "\n";
+			echo "    Inner HTML:  " . $row->GetInnerHTML() . "\n";
+			echo "    Plain text:  " . $row->GetPlainText() . "\n";
+			if (isset($row->href))  echo "    href:        " . $row->href . "\n";
+			if (isset($row->src))  echo "    src:         " . $row->src . "\n";
 		}
 
 		echo "\n";
@@ -316,6 +334,15 @@
 	DisplayTFNFindResult("Find('a b:only-of-type')", $tfn, $tfn->Find("a b:only-of-type"));
 	DisplayTFNFindResult("Find('p:nth-of-type(1)')", $tfn, $tfn->Find("p:nth-of-type(1)"));
 	DisplayTFNFindResult("Find('p:nth-last-of-type(2)')", $tfn, $tfn->Find("p:nth-last-of-type(2)"));
+
+	echo "Testing object-oriented access.\n\n";
+	echo "Root node:\n";
+	$root = $tfn->Get();
+	var_dump($root);
+	echo "\n";
+
+	DisplayOOTFNFindResults("Find('a[href]')", $root->Find("a[href]"));
+	DisplayOOTFNFindResults("Find('p')->Filter('a[href]')", $root->Find("p")->Filter("a[href]"));
 
 	echo "-------------------------\n\n";
 
