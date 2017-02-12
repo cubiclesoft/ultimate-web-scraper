@@ -227,7 +227,7 @@
 									$pos = strpos($content, ">", $x + 1);
 									if ($pos !== false && trim(substr($content, $x + 1, $pos - $x - 1)) === "")
 									{
-										$cx = $x;
+										$cx = $pos;
 										$voidtag = true;
 
 										$state = "exit";
@@ -521,6 +521,7 @@
 					{
 						if ($open)
 						{
+							if ($voidtag && isset($this->options["void_tags"][$tagname]))  $voidtag = false;
 							$this->options["tag_num"]++;
 
 							// Let a callback handle any necessary changes.
@@ -533,7 +534,7 @@
 							if (!isset($funcresult["post_tag"]))  $funcresult["post_tag"] = "";
 						}
 
-						if ($funcresult["keep_tag"] && $open)
+						if ($open && $funcresult["keep_tag"])
 						{
 							$opentag = $funcresult["pre_tag"];
 							$opentag .= "<" . $prefix . $outtagname;
@@ -544,13 +545,20 @@
 								if (is_array($val))  $val = implode(" ", $val);
 								if (is_string($val))  $opentag .= "=\"" . htmlspecialchars($val) . "\"";
 							}
-							if (isset($this->options["void_tags"][$tagname]) && $this->options["output_mode"] === "xml")  $opentag .= " /";
+							if (($voidtag || isset($this->options["void_tags"][$tagname])) && $this->options["output_mode"] === "xml")
+							{
+								$opentag .= " /";
+
+								$voidtag = false;
+							}
 							$opentag .= ">";
 
-							if (!$voidtag && !isset($this->options["void_tags"][$tagname]) && $prefix === "")
+							if (!isset($this->options["void_tags"][$tagname]) && $prefix === "")
 							{
 								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
+
+								if ($voidtag)  $open = false;
 							}
 							else
 							{
@@ -558,14 +566,16 @@
 								$result .= $funcresult["post_tag"];
 							}
 						}
-						else if (!$voidtag && !isset($this->options["void_tags"][$tagname]))
+
+						if ((!$open || !$funcresult["keep_tag"]) && !isset($this->options["void_tags"][$tagname]))
 						{
 							if ($open)
 							{
 								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
 								$result = "";
 							}
-							else
+
+							if (!$open)
 							{
 								$found = false;
 								foreach ($this->stack as $info)

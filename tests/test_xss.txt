@@ -115,6 +115,9 @@ sCrIpT
 <SCRIPT a=">'>" SRC="xss.js"></SCRIPT>
 <SCRIPT>document.write("<SCRI");</SCRIPT>PT SRC="xss.js"></SCRIPT>
 
+< fakevoid  onload="return
+confirm('Wanna give me your password?');"  /
+>
 <script type="text/javascript">
 document.write('<p>Don\'t include me!</p>');
 document.write('<script></script>');

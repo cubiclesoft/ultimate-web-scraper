@@ -323,7 +323,11 @@
 	echo "Removing all 'span' tags but keeping all child nodes.\n";
 	$result = $tfn->Find("span");
 	echo "  " . json_encode($result, JSON_UNESCAPED_SLASHES) . "\n";
-	foreach ($result["ids"] as $id)  echo "  " . $id . ":  " . ($tfn->Remove($id, true) ? "true" : "false") . "\n";
+	foreach ($result["ids"] as $id)
+	{
+		$tfn->Remove($id, true);
+		echo "  " . $id . ":  true\n";
+	}
 	echo "\n";
 
 	DisplayTFNFindResult("Find('span')", $tfn, $tfn->Find("span"));
