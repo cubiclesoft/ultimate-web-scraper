@@ -818,6 +818,24 @@
 			return $this->tfn->GetTag($this->id);
 		}
 
+		public function AddClass($name, $attr = "class")
+		{
+			if (isset($this->tfn->nodes[$this->id]) && isset($this->tfn->nodes[$this->id]["attrs"]))
+			{
+				if (!isset($this->tfn->nodes[$this->id]["attrs"][$attr]) || !is_array($this->tfn->nodes[$this->id]["attrs"][$attr]))  $this->tfn->nodes[$this->id]["attrs"][$attr] = array();
+
+				$this->tfn->nodes[$this->id]["attrs"][$attr][$name] = $name;
+			}
+		}
+
+		public function RemoveClass($name, $attr = "class")
+		{
+			if (isset($this->tfn->nodes[$this->id]) && isset($this->tfn->nodes[$this->id]["attrs"]))
+			{
+				if (isset($this->tfn->nodes[$this->id]["attrs"][$attr]) && is_array($this->tfn->nodes[$this->id]["attrs"][$attr]))  unset($this->tfn->nodes[$this->id]["attrs"][$attr][$name]);
+			}
+		}
+
 		public function Parent()
 		{
 			return $this->tfn->GetParent($this->id);
