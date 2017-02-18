@@ -506,8 +506,8 @@ Returns:  An integer containing a UNIX timestamp.
 This internal function converts internal cookie timestamps into UNIX timestamps for calculating whether or not the cookie has expired.
 
 
-WebBrowserForm Class:  'support/web_browser.php'
-================================================
+WebBrowserForm Class
+====================
 
 This class is specifically designed to manage HTML forms for later submission with the WebBrowser class.  $form->info and $form->fields are public arrays that can be read and manipulated but use of the convenient helper functions is highly recommended.
 
