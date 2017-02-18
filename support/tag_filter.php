@@ -91,7 +91,18 @@
 								// Comment.
 								$pos = strpos($content, "!--", $cx);
 								$pos2 = strpos($content, "-->", $pos + 3);
-								if ($pos2 === false)  $pos2 = $cy;
+								if ($pos2 === false)
+								{
+									if (!$this->final)
+									{
+										$cx = $firstcx;
+
+										break;
+									}
+
+									$pos2 = $cy;
+								}
+
 								if ($this->options["keep_comments"])
 								{
 									$content2 = "<!-- " . htmlspecialchars(substr($content, $pos + 3, $pos2)) . " -->";
@@ -504,9 +515,7 @@
 					// Break out of the loop if the end of the stream has been reached but not finalized and most likely in the middle of a tag.
 					if ($cx >= $cy && !$this->final)
 					{
-						$this->lastcontent = substr($content, $firstcx);
-						$this->lastresult = $result;
-						$result = "";
+						$cx = $firstcx;
 
 						break;
 					}
@@ -643,10 +652,6 @@
 
 							$result .= $content2;
 
-							$this->lastcontent = substr($content, $cx);
-							$this->lastresult = $result;
-							$result = "";
-
 							break;
 						}
 					}
@@ -693,6 +698,12 @@
 					$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
 					if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
 				}
+			}
+			else
+			{
+				$this->lastcontent = ($cx < $cy ? substr($content, $cx) : "");
+				$this->lastresult = $result;
+				$result = "";
 			}
 
 			return $result;
@@ -891,7 +902,6 @@
 			return $this->tfn->GetInnerHTML($this->id, $mode);
 		}
 
-		// Set functions ruin the object.
 		public function SetInnerHTML($src)
 		{
 			return $this->tfn->SetInnerHTML($this->id, $src);
