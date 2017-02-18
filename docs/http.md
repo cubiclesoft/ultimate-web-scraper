@@ -216,7 +216,7 @@ The $options array can contain:
 * read_body_callback - A valid callback function for a callback that will process some body content.  The callback function must accept three parameters - callback($response, $data, $opts).
 * read_body_callback_opts - Data to pass as the third parameter to the function specified by 'read_body_callback' option.
 
-SSL/TLS certificates are verified against the included 'cacert.pem' file.  This file comes from the cURL website.
+SSL/TLS certificates are verified against the included 'cacert.pem' file.  This file comes from the [cURL website](https://curl.haxx.se/docs/caextract.html).
 
 HTTP::HTTPTranslate($format, ...)
 ---------------------------------
