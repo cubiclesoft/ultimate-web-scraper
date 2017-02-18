@@ -883,14 +883,13 @@
 
 		public function DetachClient($id)
 		{
-			if (isset($this->clients[$id]))
-			{
-				$client = $this->clients[$id];
+			if (!isset($this->clients[$id]))  return false;
 
-				unset($this->clients[$id]);
+			$client = $this->clients[$id];
 
-				return $client;
-			}
+			unset($this->clients[$id]);
+
+			return $client;
 		}
 
 		public function RemoveClient($id)
@@ -935,11 +934,6 @@
 			return $this->fp;
 		}
 
-		public function Write($data)
-		{
-			fwrite($this->fp, $data);
-		}
-
 		public function Read($size)
 		{
 			if ($this->fp === false)  return false;
@@ -949,6 +943,11 @@
 			if ($data === false)  $data = "";
 
 			return $data;
+		}
+
+		public function Write($data)
+		{
+			return fwrite($this->fp, $data);
 		}
 
 		public function Close()
