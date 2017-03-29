@@ -1489,6 +1489,39 @@ Example usage:
 ?>
 ```
 
+TagFilterNode::ParentPos()
+--------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  An integer containing the position of the current node in the parent, false otherwise.
+
+This function retrieves the tracked parent position within the current node.  Useful for locating a specific sibling.
+
+Example usage:
+
+```php
+<?php
+	require_once "support/tag_filter.php";
+
+	$html = "<p><a href=\"http://barebonescms.com/\">A link</a><img src=\"cool.jpg\"></p><p>Not me!</p>";
+	$htmloptions = TagFilter::GetHTMLOptions();
+
+	$html = TagFilter::Explode($html, $htmloptions);
+
+	$root = $html->Get();
+
+	$rows = $root->Find("img");
+	foreach ($rows as $row)
+	{
+		echo $row . "\n";
+		echo $row->ParentPos() . "\n";
+	}
+?>
+```
+
 TagFilterNode::Children($objects = false)
 -----------------------------------------
 

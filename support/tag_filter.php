@@ -852,6 +852,11 @@
 			return $this->tfn->GetParent($this->id);
 		}
 
+		public function ParentPos()
+		{
+			return (isset($this->tfn->nodes[$this->id]) ? $this->tfn->nodes[$this->id]["parentpos"] : false);
+		}
+
 		// Passing true to this method has the potential to leak RAM.  Passing false is preferred, use with caution.
 		public function Children($objects = false)
 		{
@@ -1539,7 +1544,7 @@
 
 		public function GetNextSibling($id)
 		{
-			if ($id === false || !isset($this->nodes[$id]) || $this->nodes[$id]["parentpos"] >= count($this->nodes[$this->nodes[$id]["parent"]]["children"]))  return false;
+			if ($id === false || !isset($this->nodes[$id]) || $this->nodes[$id]["parentpos"] >= count($this->nodes[$this->nodes[$id]["parent"]]["children"]) - 1)  return false;
 
 			return $this->Get($this->nodes[$this->nodes[$id]["parent"]]["children"][$this->nodes[$id]["parentpos"] + 1]);
 		}
