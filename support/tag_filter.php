@@ -690,10 +690,10 @@
 					if (isset($this->options["tag_callback"]) && is_callable($this->options["tag_callback"]))  $funcresult = call_user_func_array($this->options["tag_callback"], array($this->stack, &$result, false, "/" . $this->stack[0]["tag_name"], &$attrs, $this->options));
 					else  $funcresult = array();
 
+					$info = array_shift($this->stack);
+
 					// Force close tag to be kept if the stream already output the open tag.
 					if (!isset($funcresult["keep_tag"]) || ($info["close_tag"] && $info["open_tag"] == ""))  $funcresult["keep_tag"] = true;
-
-					$info = array_shift($this->stack);
 
 					$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
 					if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
