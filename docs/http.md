@@ -187,14 +187,14 @@ NOTE:  This function does NOT process redirects (e.g. "Location: " headers) or c
 
 HTTPS support requires PHP to have been compiled and enabled with SSL protocol wrapper support via OpenSSL.
 
-The $options array can contain:
+The $options array accepts these options:
 
 * timeout - A boolean of false or a numeric value containing the maximum amount of time, in seconds, to take for all operations.
-* protocol - A string containing the preferred low-level protocol.  May be "ssl", "tls", or "tcp".
+* protocol - A string containing the preferred low-level protocol.  May be any supported protocol that the PHP stream_get_transports() function supports (e.g. "ssl", "tls", "tlsv1.2", "tcp").
 * connecttimeout - An integer containing the amount of time to wait for the connection to the host to succeed in seconds (Default is 10).
 * sslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled host.  Also supports "auto_cainfo", "auto_cn_match", and "auto_sni" options to define several context options automatically.
 * proxyurl - A string containing the URL of a web proxy to pass the request through.
-* proxyprotocol - A string containing the preferred low-level protocol for the proxy.  May be "ssl", "tls", or "tcp".
+* proxyprotocol - A string containing the preferred low-level protocol for the proxy.  May be any supported protocol that the PHP stream_get_transports() function supports (e.g. "ssl", "tls", "tlsv1.2", "tcp").
 * proxyconnect - A boolean that specifies that the request through the proxy should attempt to tunnel the request via HTTP CONNECT.
 * proxyconnecttimeout - An integer containing the amount of time to wait for the connection to the proxy to succeed in seconds (Default is 10).
 * proxysslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled proxy. Also supports "auto_cainfo", "auto_cn_match", and "auto_sni" options to define several context options automatically.
