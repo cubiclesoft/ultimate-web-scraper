@@ -1321,7 +1321,7 @@
 				$proxyurl = self::ExtractURL($proxyurl);
 
 				$proxysecure = ($proxyurl["scheme"] == "https");
-				$proxyprotocol = ($proxysecure ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "tcp");
+				$proxyprotocol = ($proxysecure ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "tls") : "tcp");
 				if (function_exists("stream_get_transports") && !in_array($proxyprotocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport proxy protocol '%s' is not installed.", $proxyprotocol), "errorcode" => "proxy_transport_not_installed");
 				$proxyhost = str_replace(" ", "-", self::HeaderValueCleanup($proxyurl["host"]));
 				$proxyport = ((int)$proxyurl["port"] ? (int)$proxyurl["port"] : ($proxysecure ? 443 : 80));
