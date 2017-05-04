@@ -145,6 +145,33 @@ Example usage:
 ?>
 ```
 
+HTTP::GetSSLCiphers($type = "intermediate")
+-------------------------------------------
+
+Access:  public static
+
+Parameters:
+
+* $type - A string containing one of "modern", "intermediate", or "old" (Default is "intermediate").
+
+Returns:  A string containing the SSL cipher list to use.
+
+This static function returns SSL cipher lists extracted from the [Mozilla SSL configuration generator](https://mozilla.github.io/server-side-tls/ssl-config-generator/).
+
+HTTP::GetSafeSSLOpts($cafile = true, $cipherstype = "intermediate")
+-------------------------------------------------------------------
+
+Access:  public static
+
+Parameters:
+
+* $cafile - A boolean that indicates whether or not to use the internally defined CA file list or a string containing the full path and filename of a CA root certificate file (Default is true).
+* $cipherstype - A string containing one of "modern", "intermediate", or "old" (Default is "intermediate").  See GetSSLCiphers() above.
+
+Returns:  An array of SSL context options.
+
+This static function is used to generate a default "sslopts" or "proxysslopts" array if they are not provided when connecting to an associated HTTPS server.
+
 HTTP::GetDateTimestamp($httpdate)
 ---------------------------------
 
