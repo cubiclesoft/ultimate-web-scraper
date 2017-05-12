@@ -1323,7 +1323,7 @@
 			if ($url["scheme"] != "http" && $url["scheme"] != "https")  return array("success" => false, "error" => self::HTTPTranslate("RetrieveWebpage() only supports the 'http' and 'https' protocols."), "errorcode" => "protocol_check");
 
 			$secure = ($url["scheme"] == "https");
-			$protocol = ($secure ? (isset($options["protocol"]) ? strtolower($options["protocol"]) : "tls") : "tcp");
+			$protocol = ($secure ? (isset($options["protocol"]) ? strtolower($options["protocol"]) : "ssl") : "tcp");
 			if (function_exists("stream_get_transports") && !in_array($protocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport protocol '%s' is not installed.", $protocol), "errorcode" => "transport_not_installed");
 			$host = str_replace(" ", "-", self::HeaderValueCleanup($url["host"]));
 			if ($host == "")  return array("success" => false, "error" => self::HTTPTranslate("Invalid URL."));
@@ -1349,7 +1349,7 @@
 				$proxyurl = self::ExtractURL($proxyurl);
 
 				$proxysecure = ($proxyurl["scheme"] == "https");
-				$proxyprotocol = ($proxysecure ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "tls") : "tcp");
+				$proxyprotocol = ($proxysecure ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "ssl") : "tcp");
 				if (function_exists("stream_get_transports") && !in_array($proxyprotocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport proxy protocol '%s' is not installed.", $proxyprotocol), "errorcode" => "proxy_transport_not_installed");
 				$proxyhost = str_replace(" ", "-", self::HeaderValueCleanup($proxyurl["host"]));
 				$proxyport = ((int)$proxyurl["port"] ? (int)$proxyurl["port"] : ($proxysecure ? 443 : 80));
