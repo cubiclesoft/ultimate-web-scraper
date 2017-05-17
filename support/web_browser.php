@@ -901,7 +901,7 @@
 
 			if (!isset($this->data["cookies"][$cookie["domain"]]))  $this->data["cookies"][$cookie["domain"]] = array();
 			if (!isset($this->data["cookies"][$cookie["domain"]][$cookie["path"]]))  $this->data["cookies"][$cookie["domain"]][$cookie["path"]] = array();
-			$this->data["cookies"][$cookie["domain"]][$cookie["path"]][] = $cookie;
+			$this->data["cookies"][$cookie["domain"]][$cookie["path"]][$cookie["name"]] = $cookie;
 
 			return array("success" => true);
 		}
