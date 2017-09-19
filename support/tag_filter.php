@@ -206,7 +206,7 @@
 									$info = array_shift($this->stack);
 
 									$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-									if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+									if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
 								} while (!isset($info2[$info["tag_name"]]));
 							}
 						} while ($found);
@@ -612,7 +612,7 @@
 										$info = array_shift($this->stack);
 
 										$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-										if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+										if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
 									} while ($tagname !== $info["tag_name"]);
 								}
 							}
@@ -696,7 +696,7 @@
 					if (!isset($funcresult["keep_tag"]) || ($info["close_tag"] && $info["open_tag"] == ""))  $funcresult["keep_tag"] = true;
 
 					$result = $info["result"] . ($funcresult["keep_tag"] ? $info["open_tag"] : "") . ($info["keep_interior"] ? $result : "");
-					if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["tag_name"] . ">" . $info["post_tag"];
+					if ($info["close_tag"] && $funcresult["keep_tag"])  $result .= "</" . $info["out_tag_name"] . ">" . $info["post_tag"];
 				}
 			}
 			else
