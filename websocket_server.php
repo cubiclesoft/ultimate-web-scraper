@@ -63,7 +63,7 @@
 		}
 
 		// Starts the server on the host and port.
-		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] and [fe80::1] for IPv6.
+		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] or [::1] for IPv6.
 		public function Start($host, $port)
 		{
 			$this->Stop();
@@ -178,7 +178,7 @@
 				$client->websocket->SetMaxReadMessageSize($this->defaultmaxreadmessagesize);
 
 				// Set the socket in the WebSocket class.
-				$client->websocket->Connect("", "", "", array("fp" => $client->fp));
+				$client->websocket->Connect("", "", "", array("connected_fp" => $client->fp));
 			}
 		}
 
@@ -305,7 +305,7 @@
 				else
 				{
 					$result2 = @fread($fp, 8192);
-					if ($result2 === false || feof($fp))
+					if ($result2 === false || ($result2 === "" && feof($fp)))
 					{
 						@fclose($fp);
 
@@ -389,7 +389,7 @@
 				else
 				{
 					$result2 = @fwrite($fp, $client->writedata);
-					if ($result2 === false || feof($fp))
+					if ($result2 === false || ($result2 === "" && feof($fp)))
 					{
 						@fclose($fp);
 

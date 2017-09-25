@@ -111,7 +111,7 @@ This function starts a WebSocket server on the specified host and port.  The soc
 * `0.0.0.0` to bind to all IPv4 interfaces.
 * `127.0.0.1` to bind to the localhost IPv4 interface.
 * `[::0]` to bind to all IPv6 interfaces.
-* `[fe80::1]` to bind to the localhost IPv6 interface.
+* `[::1]` to bind to the localhost IPv6 interface.
 
 To select a new port number for a server, use the following link:
 
