@@ -381,6 +381,20 @@ This internal function creates a new client and adds it to the initclients array
 * lastts - The time of the last interaction with this client.
 * ipaddr - A string containing the source IP of the client.
 
+WebServer::HandleNewConnections(&$readfps, &$writefps)
+------------------------------------------------------
+
+Access:  protected
+
+Parameters:
+
+* $readfps - An array reference to manage streams that might have data to read.
+* $writefps - An array reference to manage streams that are probably ready to send data.
+
+Returns:  Nothing.
+
+This protected function handles new incoming connections in Wait().  Can be overridden in a derived class to provide alternate functionality.
+
 WebServer::DetachClient($id)
 ----------------------------
 
@@ -392,7 +406,7 @@ Parameters:
 
 Returns:  The associated client instance on success, a boolean of false otherwise.
 
-This function detaches a specific active client.  Note that there is no AttachClient() function for WebServer.  This function is used by WebSocketServer::ProcessWebServerClientUpgrade() to handle valid Upgrade requests to the WebSocket protocol.
+This function detaches a specific active client.  Note that there is no AttachClient() function for WebServer.  This function is used by WebSocketServer::ProcessWebServerClientUpgrade() to handle valid Upgrade requests to the WebSocket protocol.  This function is also used by WebRouteServer::ProcessWebServerClientUpgrade() to handle valid Upgrade requests to the WebRoute protocol.
 
 
 WebServer_TempFile Class

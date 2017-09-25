@@ -80,7 +80,7 @@
 		}
 
 		// Starts the server on the host and port.
-		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] and [fe80::1] for IPv6.
+		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] or [::1] for IPv6.
 		public function Start($host, $port, $sslopts = false)
 		{
 			$this->Stop();
@@ -560,6 +560,24 @@
 			return $client;
 		}
 
+		protected function HandleNewConnections(&$readfps, &$writefps)
+		{
+			if (isset($readfps["http_s"]))
+			{
+				while (($fp = @stream_socket_accept($this->fp, 0)) !== false)
+				{
+					// Enable non-blocking mode.
+					stream_set_blocking($fp, 0);
+
+					$client = $this->InitNewClient();
+					$client->fp = $fp;
+					$client->ipaddr = stream_socket_get_name($fp, true);
+				}
+
+				unset($readfps["http_s"]);
+			}
+		}
+
 		// Handles new connections, the initial conversation, basic packet management, rate limits, and timeouts.
 		// Can wait on more streams than just sockets and/or more sockets.  Useful for waiting on other resources.
 		// 'http_s' and the 'http_c_' prefix are reserved.
@@ -575,25 +593,12 @@
 			if ($result2 === false)  return array("success" => false, "error" => HTTP::HTTPTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
 			// Handle new connections.
-			if (isset($readfps["http_s"]))
-			{
-				while (($fp = @stream_socket_accept($this->fp, 0)) !== false)
-				{
-					// Enable non-blocking mode.
-					stream_set_blocking($fp, 0);
-
-					$client = $this->InitNewClient();
-					$client->fp = $fp;
-					$client->ipaddr = stream_socket_get_name($fp, true);
-				}
-
-				unset($readfps["http_s"]);
-			}
+			$this->HandleNewConnections($readfps, $writefps);
 
 			// Handle clients in the read queue.
 			foreach ($readfps as $cid => $fp)
 			{
-				if (!is_string($cid) || strlen($cid) < 6 || substr($cid, 0, 7) !== "http_c_")  continue;
+				if (!is_string($cid) || strlen($cid) < 8 || substr($cid, 0, 7) !== "http_c_")  continue;
 
 				$id = (int)substr($cid, 7);
 
@@ -1038,6 +1043,13 @@
 									. (empty($domain) ? "" : "; domain=" . $domain)
 									. (!$secure ? "" : "; secure")
 									. (!$httponly ? "" : "; HttpOnly"));
+		}
+
+		public function SetResponseNoCache()
+		{
+			$this->AddResponseHeader("Expires", "Tue, 03 Jul 2001 06:00:00 GMT", true);
+			$this->AddResponseHeader("Last-Modified", gmdate("D, d M Y H:i:s T"), true);
+			$this->AddResponseHeader("Cache-Control", "max-age=0, no-cache, must-revalidate, proxy-revalidate", true);
 		}
 
 		public function AddResponseHeader($name, $val, $replace = false)
