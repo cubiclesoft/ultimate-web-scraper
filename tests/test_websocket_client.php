@@ -1,6 +1,14 @@
 <?php
+	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
+	{
+		echo "This file is intended to be run from the command-line.";
+
+		exit();
+	}
+
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
+
 	require_once $rootpath . "/../support/websocket.php";
 
 	$ws = new WebSocket();

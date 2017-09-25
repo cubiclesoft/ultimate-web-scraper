@@ -2,8 +2,16 @@
 	// This is strictly a test of the WebSocketServer class which only implements WebSocket.
 	// For a more complete end-user experience, see 'test_web_server.php'.
 
+	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
+	{
+		echo "This file is intended to be run from the command-line.";
+
+		exit();
+	}
+
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
+
 	require_once $rootpath . "/../websocket_server.php";
 	require_once $rootpath . "/../support/websocket.php";
 	require_once $rootpath . "/../support/http.php";

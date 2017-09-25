@@ -1,8 +1,16 @@
 <?php
 	// Tests the functionality of the WebServer and WebSocketServer classes by implementing a simple math API.
 
+	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
+	{
+		echo "This file is intended to be run from the command-line.";
+
+		exit();
+	}
+
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
+
 	require_once $rootpath . "/../web_server.php";
 	require_once $rootpath . "/../websocket_server.php";
 	require_once $rootpath . "/../support/websocket.php";
