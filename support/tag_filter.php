@@ -1486,7 +1486,7 @@
 						case "content":
 						case "comment":
 						{
-							if (isset($types["element"]) || !isset($options["no_content_elements"][$this->nodes[$this->nodes[$id]["parent"]]["tag"]]))  $result .= $this->nodes[$id]["text"];
+							if (isset($types["element"]) || !isset($this->nodes[$this->nodes[$id]["parent"]]["tag"]) || !isset($options["no_content_elements"][$this->nodes[$this->nodes[$id]["parent"]]["tag"]]))  $result .= $this->nodes[$id]["text"];
 
 							break;
 						}
