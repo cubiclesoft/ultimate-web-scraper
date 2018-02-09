@@ -49,6 +49,8 @@
 			$z = ord("Z");
 			$z2 = ord("z");
 			$hyphen = ord("-");
+			$underscore = ord("_");
+			$period = ord(".");
 			$colon = ord(":");
 			$zero = ord("0");
 			$nine = ord("9");
@@ -162,7 +164,7 @@
 					for (; $cx < $cy; $cx++)
 					{
 						$val = ord($content{$cx});
-						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && $val >= $zero && $val <= $nine) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
+						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 					}
 					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
 					$outtagname = ($this->options["lowercase_tags"] ? strtolower($tagname) : $tagname);
@@ -213,14 +215,14 @@
 					}
 
 					// Process attributes/properties until a closing condition is encountered.
-					$state = "key";
+					$state = "name";
 					$voidtag = false;
 					$attrs = array();
 					do
 					{
 //echo "State:  " . $state . "\n";
 //echo "Content:\n" . $content . "\n";
-						if ($state === "key")
+						if ($state === "name")
 						{
 							// Find attribute key/property.
 							for ($x = $cx; $x < $cy; $x++)
@@ -290,7 +292,7 @@
 										for (; $cx < $cy; $cx++)
 										{
 											$val = ord($content{$cx});
-											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && $val >= $zero && $val <= $nine) || ($cx > $x && $val == $hyphen) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
+											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 										}
 
 										$keyname = rtrim(substr($content, $x, $cx - $x), "-:");
@@ -303,7 +305,7 @@
 								}
 							}
 
-							if ($state === "key")
+							if ($state === "name")
 							{
 								$cx = $cy;
 
@@ -339,7 +341,7 @@
 
 									$attrs[$keyname] = true;
 
-									$state = "key";
+									$state = "name";
 
 									break;
 								}
@@ -352,7 +354,7 @@
 
 										$attrs[$keyname] = true;
 
-										$state = "key";
+										$state = "name";
 
 										break;
 									}
@@ -391,7 +393,7 @@
 										$value = substr($content, $x + 1, $pos - $x - 1);
 										$cx = $pos + 1;
 
-										$state = "key";
+										$state = "name";
 									}
 
 									break;
@@ -410,7 +412,7 @@
 
 									$value = substr($content, $x, $cx - $x);
 
-									$state = "key";
+									$state = "name";
 
 									break;
 								}
@@ -425,7 +427,7 @@
 								$state = "exit";
 							}
 
-							if ($state === "key")
+							if ($state === "name")
 							{
 								$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, $this->options["charset"]);
 
