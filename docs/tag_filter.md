@@ -55,7 +55,7 @@ Example direct usage:
 
 		// Find all table rows that have 'th' tags.
 		// The 'tr' tag IDs are returned.
-		$result2 = $html->Filter($hmtl->Find("tr"), "th");
+		$result2 = $html->Filter($html->Find("tr"), "th");
 		if (!$result2["success"])  echo "Error parsing/finding table rows.  " . $result2["error"] . "\n";
 		else
 		{
