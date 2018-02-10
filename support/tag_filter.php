@@ -18,6 +18,9 @@
 			if (!isset($options["allow_namespaces"]))  $options["allow_namespaces"] = true;
 			if (!isset($options["process_attrs"]))  $options["process_attrs"] = array();
 			if (!isset($options["charset"]))  $options["charset"] = "UTF-8";
+			$options["charset"] = strtoupper($options["charset"]);
+			if (!isset($options["charset_tags"]))  $options["charset_tags"] = true;
+			if (!isset($options["charset_attrs"]))  $options["charset_attrs"] = true;
 			if (!isset($options["tag_name_map"]))  $options["tag_name_map"] = array();
 			if (!isset($options["untouched_tag_attr_keys"]))  $options["untouched_tag_attr_keys"] = array();
 			if (!isset($options["void_tags"]))  $options["void_tags"] = array();
@@ -160,13 +163,22 @@
 
 					// Read the tag name.
 					$tagname = "";
+					$parse = false;
 					$cx = $startpos;
 					for (; $cx < $cy; $cx++)
 					{
 						$val = ord($content{$cx});
-						if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
+						if ($val > 127)  $parse = true;
+						else if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 					}
-					$tagname = rtrim(substr($content, $startpos, $cx - $startpos), ":");
+					$tagname = substr($content, $startpos, $cx - $startpos);
+					if ($parse)
+					{
+						if ($this->options["charset_tags"] && $this->options["charset"] === "UTF-8")  $tagname = self::MakeValidUTF8($tagname);
+						else  $tagname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._-]/' : '/[^A-Za-z0-9._-]/'), "", $tagname);
+					}
+					$tagname = rtrim($tagname, "._-:");
+					if (!$this->options["charset_tags"])  $tagname = preg_replace('/[^A-Za-z0-9:]/', "", $tagname);
 					$outtagname = ($this->options["lowercase_tags"] ? strtolower($tagname) : $tagname);
 					$tagname = strtolower($tagname);
 
@@ -288,14 +300,18 @@
 									if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 									{
 										$cx = $x;
+										$parse = false;
 
 										for (; $cx < $cy; $cx++)
 										{
-											$val = ord($content{$cx});
-											if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $x && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
+											if ($content{$cx} === " " || $content{$cx} === "=" || $content{$cx} === "\"" || $content{$cx} === "'" || $content{$cx} === "`" || $content{$cx} === ">" || $content{$cx} === "<" || $content{$cx} === "/" || $content{$cx} === "\0" || $content{$cx} === "\r" || $content{$cx} === "\n" || $content{$cx} === "\t")  break;
+											else if (ord($content{$cx}) > 127)  $parse = true;
 										}
 
-										$keyname = rtrim(substr($content, $x, $cx - $x), "-:");
+										$keyname = substr($content, $x, $cx - $x);
+										if ($parse && $this->options["charset_attrs"] && $this->options["charset"] === "UTF-8")  $keyname = self::MakeValidUTF8(preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._\-\x80-\xFF]/' : '/[^A-Za-z0-9._\-\x80-\xFF]/'), "", $keyname));
+										else  $keyname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._-]/' : '/[^A-Za-z0-9._-]/'), "", $keyname);
+										$keyname = rtrim($keyname, "._-:");
 										if (!isset($this->options["untouched_tag_attr_keys"][$tagname]) && $this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
 
 										$state = "equals";
@@ -768,6 +784,90 @@
 			{
 				$result .= $this->lastresult;
 				$this->lastresult = "";
+			}
+
+			return $result;
+		}
+
+		public static function MakeValidUTF8($data)
+		{
+			$result = "";
+			$x = 0;
+			$y = strlen($data);
+			while ($x < $y)
+			{
+				$tempchr = ord($data[$x]);
+				if ($y - $x > 1)  $tempchr2 = ord($data[$x + 1]);
+				else  $tempchr2 = 0x00;
+				if ($y - $x > 2)  $tempchr3 = ord($data[$x + 2]);
+				else  $tempchr3 = 0x00;
+				if ($y - $x > 3)  $tempchr4 = ord($data[$x + 3]);
+				else  $tempchr4 = 0x00;
+				if ($tempchr == 0x09 || $tempchr == 0x0A || $tempchr == 0x0D || ($tempchr >= 0x20 && $tempchr <= 0x7E))
+				{
+					// ASCII minus control and special characters.
+					$result .= chr($tempchr);
+					$x++;
+				}
+				else if (($tempchr >= 0xC2 && $tempchr <= 0xDF) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF))
+				{
+					// Non-overlong (2 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$x += 2;
+				}
+				else if ($tempchr == 0xE0 && ($tempchr2 >= 0xA0 && $tempchr2 <= 0xBF) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF))
+				{
+					// Non-overlong (3 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$x += 3;
+				}
+				else if ((($tempchr >= 0xE1 && $tempchr <= 0xEC) || $tempchr == 0xEE || $tempchr == 0xEF) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF))
+				{
+					// Normal/straight (3 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$x += 3;
+				}
+				else if ($tempchr == 0xED && ($tempchr2 >= 0x80 && $tempchr2 <= 0x9F) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF))
+				{
+					// Non-surrogates (3 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$x += 3;
+				}
+				else if ($tempchr == 0xF0 && ($tempchr2 >= 0x90 && $tempchr2 <= 0xBF) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF) && ($tempchr4 >= 0x80 && $tempchr4 <= 0xBF))
+				{
+					// Planes 1-3 (4 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$result .= chr($tempchr4);
+					$x += 4;
+				}
+				else if (($tempchr >= 0xF1 && $tempchr <= 0xF3) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF) && ($tempchr4 >= 0x80 && $tempchr4 <= 0xBF))
+				{
+					// Planes 4-15 (4 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$result .= chr($tempchr4);
+					$x += 4;
+				}
+				else if ($tempchr == 0xF4 && ($tempchr2 >= 0x80 && $tempchr2 <= 0x8F) && ($tempchr3 >= 0x80 && $tempchr3 <= 0xBF) && ($tempchr4 >= 0x80 && $tempchr4 <= 0xBF))
+				{
+					// Plane 16 (4 bytes).
+					$result .= chr($tempchr);
+					$result .= chr($tempchr2);
+					$result .= chr($tempchr3);
+					$result .= chr($tempchr4);
+					$x += 4;
+				}
+				else  $x++;
 			}
 
 			return $result;
@@ -1973,6 +2073,8 @@
 				"keep_comments" => false,
 				"allow_namespaces" => true,
 				"charset" => "UTF-8",
+				"charset_tags" => true,
+				"charset_attrs" => true,
 				"output_mode" => "html",
 				"lowercase_tags" => true,
 				"lowercase_attrs" => true,
