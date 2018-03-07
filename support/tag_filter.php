@@ -1178,7 +1178,7 @@
 						case "pseudo-class":
 						{
 							$pc = $rules[$x]["pseudo"];
-							$valid = ($pc === "first-child" || $pc === "last-child" || $pc === "only-child" || $pc === "nth-child" || $pc === "nth-last-child" || $pc === "first-of-type" || $pc === "last-of-type" || $pc === "only-of-type" || $pc === "nth-of-type" || $pc === "nth-last-of-type" || $pc === "empty");
+							$valid = ($pc === "first-child" || $pc === "last-child" || $pc === "only-child" || $pc === "nth-child" || $pc === "nth-last-child" || $pc === "first-child-all" || $pc === "last-child-all" || $pc === "only-child-all" || $pc === "nth-child-all" || $pc === "nth-last-child-all" || $pc === "first-of-type" || $pc === "last-of-type" || $pc === "only-of-type" || $pc === "nth-of-type" || $pc === "nth-last-of-type" || $pc === "empty");
 
 							if ($valid && substr($rules[$x]["pseudo"], 0, 4) === "nth-" && (!isset($rules[$x]["a"]) || !isset($rules[$x]["b"])))  $valid = false;
 
