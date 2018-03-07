@@ -1260,6 +1260,7 @@
 			$numrules = count($rules);
 
 			$result = array();
+			$childcache = array();
 			$oftypecache = array();
 			$rootid = $id;
 			$pos = 0;
@@ -1315,6 +1316,31 @@
 										$nth = (substr($rules[$x][$x2]["pseudo"], 0, 4) === "nth-");
 										if ($nth && (!isset($rules[$x][$x2]["a"]) || !isset($rules[$x][$x2]["b"])))  return array("success" => false, "error" => "Pseudo-class ':" . $rules[$x][$x2]["pseudo"] . "(n)' requires an expression for 'n'.", "errorcode" => "missing_pseudo_class_expression");
 
+										if (substr($rules[$x][$x2]["pseudo"], -6) === "-child")
+										{
+											if (!isset($childcache[$id2]))
+											{
+												$children = 0;
+												foreach ($this->nodes[$pid]["children"] as $id3)
+												{
+													if ($this->nodes[$id3]["type"] === "element")
+													{
+														$childcache[$id3] = array("cx" => $children);
+
+														$children++;
+													}
+												}
+
+												foreach ($this->nodes[$pid]["children"] as $id3)
+												{
+													if ($this->nodes[$id3]["type"] === "element")  $childcache[$id3]["cy"] = $children;
+												}
+											}
+
+											$cx = $childcache[$id2]["cx"];
+											$cy = $childcache[$id2]["cy"];
+										}
+
 										if (substr($rules[$x][$x2]["pseudo"], -8) === "-of-type")
 										{
 											if (!isset($oftypecache[$id2]))
@@ -1349,11 +1375,16 @@
 
 										switch ($rules[$x][$x2]["pseudo"])
 										{
-											case "first-child":  $backtrack = ($this->nodes[$id2]["parentpos"] !== 0);  break;
-											case "last-child":  $backtrack = ($this->nodes[$id2]["parentpos"] !== $pnum - 1);  break;
-											case "only-child":  $backtrack = ($pnum !== 1);  break;
-											case "nth-child":  $px = $this->nodes[$id2]["parentpos"];  break;
-											case "nth-last-child":  $px = $pnum - $this->nodes[$id2]["parentpos"] - 1;  break;
+											case "first-child":  $backtrack = ($cx !== 0);  break;
+											case "last-child":  $backtrack = ($cx !== $cy - 1);  break;
+											case "only-child":  $backtrack = ($cy !== 1);  break;
+											case "nth-child":  $px = $cx;  break;
+											case "nth-last-child":  $px = $cy - $cx - 1;  break;
+											case "first-child-all":  $backtrack = ($this->nodes[$id2]["parentpos"] !== 0);  break;
+											case "last-child-all":  $backtrack = ($this->nodes[$id2]["parentpos"] !== $pnum - 1);  break;
+											case "only-child-all":  $backtrack = ($pnum !== 1);  break;
+											case "nth-child-all":  $px = $this->nodes[$id2]["parentpos"];  break;
+											case "nth-last-child-all":  $px = $pnum - $this->nodes[$id2]["parentpos"] - 1;  break;
 											case "first-of-type":  $backtrack = ($tx !== 0);  break;
 											case "last-of-type":  $backtrack = ($tx !== $ty - 1);  break;
 											case "only-of-type":  $backtrack = ($ty !== 1);  break;
@@ -1446,6 +1477,7 @@
 												if ($id2 !== $rootid && $this->nodes[$id2]["parent"])
 												{
 													$id2 = $this->nodes[$id2]["parent"];
+													$rules[$x][$x2]["lastid"] = $id2;
 
 													break;
 												}
@@ -1456,6 +1488,7 @@
 												if ($this->nodes[$id2]["parentpos"] != 0)
 												{
 													$id2 = $this->nodes[$this->nodes[$id2]["parent"]]["children"][$this->nodes[$id2]["parentpos"] - 1];
+													$rules[$x][$x2]["lastid"] = $id2;
 
 													break;
 												}
