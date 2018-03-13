@@ -449,51 +449,50 @@
 
 								// Decode remaining entities.
 								$value2 = "";
-								while ($value != "")
+								$vx = 0;
+								$vy = strlen($value);
+								while ($vx < $vy)
 								{
-									$y = strlen($value);
-									$pos = strpos($value, "&#");
-									$pos2 = strpos($value, "\\");
-									if ($pos === false)  $pos = $y;
-									if ($pos2 === false)  $pos2 = $y;
+									$pos = strpos($value, "&#", $vx);
+									$pos2 = strpos($value, "\\", $vx);
+									if ($pos === false)  $pos = $vy;
+									if ($pos2 === false)  $pos2 = $vy;
 									if ($pos < $pos2)
 									{
 										// &#32 or &#x20 (optional trailing semi-colon)
-										$value2 .= substr($value, 0, $pos);
-										$value = substr($value, $pos + 2);
-										if ($value != "")
+										$value2 .= substr($value, $vx, $pos - $vx);
+										$vx = $pos + 2;
+										if ($vx < $vy)
 										{
-											if ($value{0} == "x" || $value{0} == "X")
+											if ($value{$vx} == "x" || $value{$vx} == "X")
 											{
-												$value = substr($value, 1);
-												if ($value != "")
+												$vx++;
+												if ($vx < $vy)
 												{
-													$y = strlen($value);
-													for ($x = 0; $x < $y; $x++)
+													for ($x = $vx; $x < $vy; $x++)
 													{
 														$val = ord($value{$x});
 														if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 													}
 
-													$num = hexdec(substr($value, 0, $x));
-													$value = substr($value, $x);
-													if ($value != "" && $value{0} == ";")  $value = substr($value, 1);
+													$num = hexdec(substr($value, $vx, $x - $vx));
+													$vx = $x;
+													if ($vx < $vy && $value{$vx} == ";")  $vx++;
 
 													$value2 .= self::UTF8Chr($num);
 												}
 											}
 											else
 											{
-												$y = strlen($value);
-												for ($x = 0; $x < $y; $x++)
+												for ($x = $vx; $x < $vy; $x++)
 												{
 													$val = ord($value{$x});
 													if (!($val >= $zero && $val <= $nine))  break;
 												}
 
-												$num = (int)substr($value, 0, $x);
-												$value = substr($value, $x);
-												if ($value != "" && $value{0} == ";")  $value = substr($value, 1);
+												$num = (int)substr($value, $vx, $x - $vx);
+												$vx = $x;
+												if ($vx < $vy && $value{$vx} == ";")  $vx++;
 
 												$value2 .= self::UTF8Chr($num);
 											}
@@ -502,28 +501,35 @@
 									else if ($pos2 < $pos)
 									{
 										// Unicode (e.g. \0020)
-										$value2 .= substr($value, 0, $pos2);
-										$value = substr($value, $pos2 + 1);
-										if ($value == "")  $value2 .= "\\";
+										$value2 .= substr($value, $vx, $pos2 - $vx);
+										$vx = $pos2 + 1;
+										if ($vx >= $vy)  $value2 .= "\\";
 										else
 										{
-											$y = strlen($value);
-											for ($x = 0; $x < $y; $x++)
+											for ($x = $vx; $x < $vy; $x++)
 											{
 												$val = ord($value{$x});
 												if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 											}
 
-											$num = hexdec(substr($value, 0, $x));
-											$value = substr($value, $x);
+											if ($x > $vx)
+											{
+												$num = hexdec(substr($value, $vx, $x - $vx));
+												$vx = $x;
 
-											$value2 .= self::UTF8Chr($num);
+												$value2 .= self::UTF8Chr($num);
+											}
+											else
+											{
+												$value2 .= "\\";
+												$vx++;
+											}
 										}
 									}
 									else
 									{
-										$value2 .= $value;
-										$value = "";
+										$value2 .= substr($value, $vx);
+										$vx = $vy;
 									}
 								}
 								$value = $value2;
