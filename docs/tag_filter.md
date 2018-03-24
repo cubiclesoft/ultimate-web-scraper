@@ -822,6 +822,40 @@ Example usage:
 ?>
 ```
 
+TagFilterNodes::SplitAt($ids, $keepidparents = false)
+-----------------------------------------------------
+
+Access:  public
+
+Parameters:
+
+* $ids - An integer or an array containing one or more node IDs.
+* $keepidparents - A boolean indicating whether or not to keep the parent elements of matching IDs in the new TagFilterNodes instances (Default is false).
+
+Returns:  An array of TagFilterNodes.
+
+This function splits a single TagFilterNodes instance into multiple instances, preserving the parent node hierarchy in the process of generating new TagFilterNodes.  This function is useful for exploding a single document tree into multiple document trees where preparing HTML for another system requires translation of the HTML into a mixed HTML/non-HTML format.
+
+Example usage:
+
+```php
+<?php
+	require_once "support/tag_filter.php";
+
+	$html = "<p><a href=\"http://barebonescms.com/\">A link</a><img src=\"cool.jpg\"></p><p>Not me!</p>";
+	$htmloptions = TagFilter::GetHTMLOptions();
+
+	$html = TagFilter::Explode($html, $htmloptions);
+
+	echo $html->Implode(0) . "\n\n";
+
+	// Split on images.
+	$result = $html->Find("img");
+	$result2 = $html->SplitAt($result["ids"]);
+
+	foreach ($result2 as $html2)  echo $html2->Implode(0) . "\n\n";
+```
+
 TagFilterNodes::GetOuterHTML($id, $mode = "html")
 -------------------------------------------------
 
@@ -1039,6 +1073,20 @@ Returns:  Nothing.
 
 This internal function walks child nodes starting at the specified position and corrects each child node's "parentpos" value.  This function is called by other TagFilterNodes functions after the nodes array has been modified so that children point at their correct location in the parent node.
 
+TagFilterNodes::SplitAt_CopyNode($nodes, &$pid, $node)
+------------------------------------------------------
+
+Access:  private static
+
+Parameters:
+
+* $nodes - An instance of TagFilterNodes.
+* $pid - An integer containing the parent ID to attach the new node to.
+* $node - An array containing the node information to modify and attach.
+
+Returns:  Nothing.
+
+This internal static function appends the node to the nodes array with the specified parent.  The copied node is modified before being attached.
 
 TagFilterNode Class
 ===================

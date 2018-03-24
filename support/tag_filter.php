@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP Tag Filter class.  Can repair broken HTML.
-	// (C) 2017 CubicleSoft.  All Rights Reserved.
+	// (C) 2018 CubicleSoft.  All Rights Reserved.
 
 	class TagFilterStream
 	{
@@ -1641,7 +1641,7 @@
 
 				if ($pos >= $maxpos)
 				{
-					if ($maxpos && $this->nodes[$id]["type"] === "element")
+					if ($this->nodes[$id]["type"] === "element" && is_array($this->nodes[$id]["children"]))
 					{
 						if (($include || $rootid != $id) && isset($types[$this->nodes[$id]["type"]]))  $result .= "</" . $this->nodes[$id]["tag"] . ">";
 					}
@@ -1930,6 +1930,116 @@
 			}
 
 			return $this->Move($src, $newpid, $newpos);
+		}
+
+		private static function SplitAt_CopyNode($nodes, &$pid, $node)
+		{
+			// Copy the node.
+			$node["parent"] = $pid;
+			$node["parentpos"] = count($nodes->nodes[$pid]["children"]);
+			if (isset($node["children"]))  $node["children"] = (is_array($node["children"]) ? array() : false);
+
+			// Attach the node.
+			$nodes->nodes[$nodes->nextid] = $node;
+			$nodes->nodes[$pid]["children"][] = $nodes->nextid;
+
+			$pid = $nodes->nextid;
+
+			$nodes->nextid++;
+		}
+
+		public function SplitAt($ids, $keepidparents = false)
+		{
+			$ids2 = array();
+			if (!is_array($ids))  $ids = array($ids);
+			foreach ($ids as $id)  $ids2[(int)$id] = true;
+			unset($ids2[0]);
+
+			$result = array();
+
+			// Walk the entire set of nodes, cloning until an ID match occurs (if any).
+			$newnodes = new TagFilterNodes();
+			$newpid = 0;
+			$id = 0;
+			$pos = 0;
+			$maxpos = (isset($this->nodes[$id]["children"]) && is_array($this->nodes[$id]["children"]) ? count($this->nodes[$id]["children"]) : 0);
+			do
+			{
+				if (!$pos)
+				{
+					if (isset($ids2[$id]) && count($newnodes->nodes[0]["children"]))
+					{
+						// Found an ID match.
+						$result[] = $newnodes;
+						$newnodes = new TagFilterNodes();
+						$newpid = 0;
+
+						if ($keepidparents)
+						{
+							$stack = array();
+							$id2 = $this->nodes[$id]["parent"];
+							while ($id2)
+							{
+								$stack[] = $id2;
+
+								$id2 = $this->nodes[$id2]["parent"];
+							}
+							$stack = array_reverse($stack);
+							foreach ($stack as $id2)
+							{
+								self::SplitAt_CopyNode($newnodes, $newpid, $this->nodes[$id2]);
+							}
+						}
+					}
+
+					if ($id)  self::SplitAt_CopyNode($newnodes, $newpid, $this->nodes[$id]);
+				}
+
+				if ($pos >= $maxpos)
+				{
+					if (!$id)  break;
+
+					if (isset($ids2[$id]))
+					{
+						// Start a new set of nodes.
+						$result[] = $newnodes;
+						$newnodes = new TagFilterNodes();
+						$newpid = 0;
+
+						$stack = array();
+						$id2 = $this->nodes[$id]["parent"];
+						while ($id2)
+						{
+							$stack[] = $id2;
+
+							$id2 = $this->nodes[$id2]["parent"];
+						}
+						$stack = array_reverse($stack);
+						foreach ($stack as $id2)
+						{
+							self::SplitAt_CopyNode($newnodes, $newpid, $this->nodes[$id2]);
+						}
+					}
+					else
+					{
+						$newpid = $newnodes->nodes[$newpid]["parent"];
+					}
+
+					$pos = $this->nodes[$id]["parentpos"] + 1;
+					$id = $this->nodes[$id]["parent"];
+					$maxpos = count($this->nodes[$id]["children"]);
+				}
+				else
+				{
+					$id = $this->nodes[$id]["children"][$pos];
+					$pos = 0;
+					$maxpos = (isset($this->nodes[$id]["children"]) && is_array($this->nodes[$id]["children"]) ? count($this->nodes[$id]["children"]) : 0);
+				}
+			} while (1);
+
+			if (!count($result) || count($newnodes->nodes[0]["children"]))  $result[] = $newnodes;
+
+			return $result;
 		}
 
 		public function GetOuterHTML($id, $mode = "html")
