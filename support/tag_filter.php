@@ -110,7 +110,9 @@
 
 								if ($this->options["keep_comments"])
 								{
-									$content2 = "<!-- " . htmlspecialchars(substr($content, $pos + 3, $pos2)) . " -->";
+									$content2 = substr($content, $pos + 3, $pos2);
+									if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($content2))  $content2 = self::MakeValidUTF8($content2);
+									$content2 = "<!-- " . htmlspecialchars($content2, ENT_COMPAT | ENT_HTML5, $this->options["charset"]) . " -->";
 
 									// Let a callback handle any necessary changes.
 									if (isset($this->options["content_callback"]) && is_callable($this->options["content_callback"]))  call_user_func_array($this->options["content_callback"], array($this->stack, $result, &$content2, $this->options));
@@ -147,7 +149,9 @@
 						{
 							// Unknown.  Encode it.
 							$data = substr($content, $cx, strpos($content, $prefix, $cx) + strlen($prefix) - $cx);
-							$content2 = htmlspecialchars($data);
+							$content2 = $data;
+							if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($content2))  $content2 = self::MakeValidUTF8($content2);
+							$content2 = htmlspecialchars($content2, ENT_COMPAT | ENT_HTML5, $this->options["charset"]);
 
 							// Let a callback handle any necessary changes.
 							if (isset($this->options["content_callback"]) && is_callable($this->options["content_callback"]))  call_user_func_array($this->options["content_callback"], array($this->stack, $result, &$content2, $this->options));
@@ -174,7 +178,7 @@
 					$tagname = substr($content, $startpos, $cx - $startpos);
 					if ($parse)
 					{
-						if ($this->options["charset_tags"] && $this->options["charset"] === "UTF-8")  $tagname = self::MakeValidUTF8($tagname);
+						if ($this->options["charset_tags"] && $this->options["charset"] === "UTF-8")  $tagname = (self::IsValidUTF8($tagname) ? $tagname : self::MakeValidUTF8($tagname));
 						else  $tagname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._-]/' : '/[^A-Za-z0-9._-]/'), "", $tagname);
 					}
 					$tagname = rtrim($tagname, "._-:");
@@ -232,8 +236,6 @@
 					$attrs = array();
 					do
 					{
-//echo "State:  " . $state . "\n";
-//echo "Content:\n" . $content . "\n";
 						if ($state === "name")
 						{
 							// Find attribute key/property.
@@ -309,8 +311,15 @@
 										}
 
 										$keyname = substr($content, $x, $cx - $x);
-										if ($parse && $this->options["charset_attrs"] && $this->options["charset"] === "UTF-8")  $keyname = self::MakeValidUTF8(preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._\-\x80-\xFF]/' : '/[^A-Za-z0-9._\-\x80-\xFF]/'), "", $keyname));
-										else  $keyname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._-]/' : '/[^A-Za-z0-9._-]/'), "", $keyname);
+										if ($parse && $this->options["charset_attrs"] && $this->options["charset"] === "UTF-8")
+										{
+											$keyname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._\-\x80-\xFF]/' : '/[^A-Za-z0-9._\-\x80-\xFF]/'), "", $keyname);
+											if (!self::IsValidUTF8($keyname))  $keyname = self::MakeValidUTF8($keyname);
+										}
+										else
+										{
+											$keyname = preg_replace(($this->options["allow_namespaces"] ? '/[^A-Za-z0-9:._-]/' : '/[^A-Za-z0-9._-]/'), "", $keyname);
+										}
 										$keyname = rtrim($keyname, "._-:");
 										if (!isset($this->options["untouched_tag_attr_keys"][$tagname]) && $this->options["lowercase_attrs"])  $keyname = strtolower($keyname);
 
@@ -445,6 +454,7 @@
 
 							if ($state === "name")
 							{
+								if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($value))  $value = self::MakeValidUTF8($value);
 								$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, $this->options["charset"]);
 
 								// Decode remaining entities.
@@ -600,7 +610,11 @@
 								$opentag .= " " . $key;
 
 								if (is_array($val))  $val = implode(" ", $val);
-								if (is_string($val))  $opentag .= "=\"" . htmlspecialchars($val) . "\"";
+								if (is_string($val))
+								{
+									if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($val))  $val = self::MakeValidUTF8($val);
+									$opentag .= "=\"" . htmlspecialchars($val, ENT_COMPAT | ENT_HTML5, $this->options["charset"]) . "\"";
+								}
 							}
 							if (($voidtag || isset($this->options["void_tags"][$tagname])) && $this->options["output_mode"] === "xml")
 							{
@@ -808,7 +822,7 @@
 				else  $tempchr3 = 0x00;
 				if ($y - $x > 3)  $tempchr4 = ord($data[$x + 3]);
 				else  $tempchr4 = 0x00;
-				if ($tempchr == 0x09 || $tempchr == 0x0A || $tempchr == 0x0D || ($tempchr >= 0x20 && $tempchr <= 0x7E))
+				if (($tempchr >= 0x20 && $tempchr <= 0x7E) || $tempchr == 0x09 || $tempchr == 0x0A || $tempchr == 0x0D)
 				{
 					// ASCII minus control and special characters.
 					$result .= chr($tempchr);
@@ -878,12 +892,59 @@
 			return $result;
 		}
 
+		public static function IsValidUTF8($data)
+		{
+			$x = 0;
+			$y = strlen($data);
+			while ($x < $y)
+			{
+				$tempchr = ord($data{$x});
+				if (($tempchr >= 0x20 && $tempchr <= 0x7E) || $tempchr == 0x09 || $tempchr == 0x0A || $tempchr == 0x0D)  $x++;
+				else if ($tempchr < 0xC2)  return false;
+				else
+				{
+					$left = $y - $x;
+					if ($left > 1)  $tempchr2 = ord($data{$x + 1});
+					else  return false;
+
+					if (($tempchr >= 0xC2 && $tempchr <= 0xDF) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF))  $x += 2;
+					else
+					{
+						if ($left > 2)  $tempchr3 = ord($data{$x + 2});
+						else  return false;
+
+						if ($tempchr3 < 0x80 || $tempchr3 > 0xBF)  return false;
+
+						if ($tempchr == 0xE0 && ($tempchr2 >= 0xA0 && $tempchr2 <= 0xBF))  $x += 3;
+						else if ((($tempchr >= 0xE1 && $tempchr <= 0xEC) || $tempchr == 0xEE || $tempchr == 0xEF) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF))  $x += 3;
+						else if ($tempchr == 0xED && ($tempchr2 >= 0x80 && $tempchr2 <= 0x9F))  $x += 3;
+						else
+						{
+							if ($left > 3)  $tempchr4 = ord($data{$x + 3});
+							else  return false;
+
+							if ($tempchr4 < 0x80 || $tempchr4 > 0xBF)  return false;
+
+							if ($tempchr == 0xF0 && ($tempchr2 >= 0x90 && $tempchr2 <= 0xBF))  $x += 4;
+							else if (($tempchr >= 0xF1 && $tempchr <= 0xF3) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF))  $x += 4;
+							else if ($tempchr == 0xF4 && ($tempchr2 >= 0x80 && $tempchr2 <= 0x8F))  $x += 4;
+							else  return false;
+						}
+					}
+				}
+			}
+
+			return true;
+		}
+
 		public static function UTF8Chr($num)
 		{
+			if ($num < 0 || ($num >= 0xD800 && $num <= 0xDFFF) || ($num >= 0xFDD0 && $num <= 0xFDEF) || ($num & 0xFFFE) == 0xFFFE)  return "";
+
 			if ($num <= 0x7F)  $result = chr($num);
-			else if ($num <= 0x7FF)  $result = chr(0xC0 | (($num & 0x7C0) >> 6)) . chr(0x80 | ($num & 0x3F));
-			else if ($num <= 0xFFFF)  $result = chr(0xE0 | (($num & 0xF000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
-			else if ($num <= 0x1FFFFF)  $result = chr(0xF0 | (($num & 0x1C0000) >> 6)) . chr(0x80 | (($num & 0x3F000) >> 6)) . chr(0x80 | (($num & 0xFC0) >> 6)) . chr(0x80 | ($num & 0x3F));
+			else if ($num <= 0x7FF)  $result = chr(0xC0 | ($num >> 6)) . chr(0x80 | ($num & 0x3F));
+			else if ($num <= 0xFFFF)  $result = chr(0xE0 | ($num >> 12)) . chr(0x80 | (($num >> 6) & 0x3F)) . chr(0x80 | ($num & 0x3F));
+			else if ($num <= 0x10FFFF)  $result = chr(0xF0 | ($num >> 18)) . chr(0x80 | (($num >> 12) & 0x3F)) . chr(0x80 | (($num  >> 6) & 0x3F)) . chr(0x80 | ($num & 0x3F));
 			else  $result = "";
 
 			return $result;
@@ -1621,7 +1682,11 @@
 									$result .= " " . $key;
 
 									if (is_array($val))  $val = implode(" ", $val);
-									if (is_string($val))  $result .= "=\"" . htmlspecialchars($val) . "\"";
+									if (is_string($val))
+									{
+										if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($val))  $val = self::MakeValidUTF8($val);
+										$result .= "=\"" . htmlspecialchars($val, ENT_COMPAT | ENT_HTML5, $this->options["charset"]) . "\"";
+									}
 								}
 								$result .= (!$maxpos && $options["output_mode"] === "xml" ? " />" : ">");
 							}
