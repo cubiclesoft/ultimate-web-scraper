@@ -2166,6 +2166,32 @@ Returns:  A string containing the flushed result.
 
 This function returns the result so far up to the specified stack position and flushes the stored output to keep RAM usage low when using TagFilterStream in streaming mode.  Note that callback functions returning 'keep_tag' of false for the closing tag won't work for tags that were already output using this function.
 
+TagFilterStream::MakeValidUTF8($data)
+-------------------------------------
+
+Access:  _internal_ public static
+
+Parameters:
+
+* $data - A string to convert to remove invalid UTF-8 characters from.
+
+Returns:  A string with only valid UTF-8 characters.
+
+This internal static function removes invalid UTF-8 characters from the input string.
+
+TagFilterStream::IsValidUTF8($data)
+-----------------------------------
+
+Access:  _internal_ public static
+
+Parameters:
+
+* $data - A string to verify that it only contains valid UTF-8 characters.
+
+Returns:  A boolean of true on success, false otherwise.
+
+This internal static function checks the input string to see if it only contains valid UTF-8 characters.  Used by TagFilterStream as a quick verification check to avoid wasting time in MakeValidUTF8().
+
 TagFilterStream::UTF8Chr($num)
 ------------------------------
 
