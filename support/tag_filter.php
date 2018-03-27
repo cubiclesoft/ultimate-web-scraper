@@ -1652,6 +1652,8 @@
 			if (!isset($options["output_mode"]))  $options["output_mode"] = "html";
 			if (!isset($options["post_elements"]))  $options["post_elements"] = array();
 			if (!isset($options["no_content_elements"]))  $options["no_content_elements"] = array("script" => true, "style" => true);
+			if (!isset($options["charset"]))  $options["charset"] = "UTF-8";
+			$options["charset"] = strtoupper($options["charset"]);
 
 			$types2 = explode(",", $options["types"]);
 			$types = array();
@@ -1682,11 +1684,7 @@
 									$result .= " " . $key;
 
 									if (is_array($val))  $val = implode(" ", $val);
-									if (is_string($val))
-									{
-										if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($val))  $val = self::MakeValidUTF8($val);
-										$result .= "=\"" . htmlspecialchars($val, ENT_COMPAT | ENT_HTML5, $this->options["charset"]) . "\"";
-									}
+									if (is_string($val))  $result .= "=\"" . htmlspecialchars($val, ENT_COMPAT | ENT_HTML5, $options["charset"]) . "\"";
 								}
 								$result .= (!$maxpos && $options["output_mode"] === "xml" ? " />" : ">");
 							}
