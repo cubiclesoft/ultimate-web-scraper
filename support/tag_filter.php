@@ -599,6 +599,7 @@
 							if (!isset($funcresult["keep_interior"]))  $funcresult["keep_interior"] = true;
 							if (!isset($funcresult["pre_tag"]))  $funcresult["pre_tag"] = "";
 							if (!isset($funcresult["post_tag"]))  $funcresult["post_tag"] = "";
+							if (!isset($funcresult["state"]))  $funcresult["state"] = false;
 						}
 
 						if ($open && $funcresult["keep_tag"])
@@ -626,7 +627,7 @@
 
 							if (!isset($this->options["void_tags"][$tagname]) && $prefix === "")
 							{
-								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => $opentag, "close_tag" => true, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"], "state" => $funcresult["state"]));
 								$result = "";
 
 								if ($voidtag)  $open = false;
@@ -642,7 +643,7 @@
 						{
 							if ($open)
 							{
-								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"]));
+								array_unshift($this->stack, array("tag_num" => $this->options["tag_num"], "tag_name" => $tagname, "out_tag_name" => $outtagname, "attrs" => $attrs, "result" => $result, "open_tag" => "", "close_tag" => false, "keep_interior" => $funcresult["keep_interior"], "post_tag" => $funcresult["post_tag"], "state" => $funcresult["state"]));
 								$result = "";
 							}
 
