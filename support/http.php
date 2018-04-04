@@ -360,6 +360,21 @@
 			return $result;
 		}
 
+		public static function MergeRawHeaders(&$headers, $rawheaders)
+		{
+			foreach ($rawheaders as $name => $val)
+			{
+				$val = self::HeaderValueCleanup($val);
+				if ($val != "")
+				{
+					$name2 = self::HeaderNameCleanup($name);
+					if (isset($headers[$name2]))  unset($headers[$name2]);
+
+					$headers[$name] = $val;
+				}
+			}
+		}
+
 		public static function ExtractHeader($data)
 		{
 			$result = array();
@@ -1337,6 +1352,7 @@
 			// Cleanup input headers.
 			if (!isset($options["headers"]))  $options["headers"] = array();
 			$options["headers"] = self::NormalizeHeaders($options["headers"]);
+			if (isset($options["rawheaders"]))  self::MergeRawHeaders($options["headers"], $options["rawheaders"]);
 
 			// Process the proxy URL (if specified).
 			$useproxy = (isset($options["proxyurl"]) && trim($options["proxyurl"]) != "");
@@ -1366,15 +1382,16 @@
 					$proxydata .= "Host: " . $host . ($defaultport ? "" : ":" . $port) . "\r\n";
 					$proxydata .= "Proxy-Connection: keep-alive\r\n";
 					if ($proxyusername != "")  $proxydata .= "Proxy-Authorization: BASIC " . base64_encode($proxyusername . ":" . $proxypassword) . "\r\n";
-					if (isset($options["proxyheaders"]))
+					if (!isset($options["proxyheaders"]))  $options["proxyheaders"] = array();
+					$options["proxyheaders"] = self::NormalizeHeaders($options["proxyheaders"]);
+					if (isset($options["rawproxyheaders"]))  self::MergeRawHeaders($options["proxyheaders"], $options["rawproxyheaders"]);
+
+					unset($options["proxyheaders"]["Accept-Encoding"]);
+					foreach ($options["proxyheaders"] as $name => $val)
 					{
-						$options["proxyheaders"] = self::NormalizeHeaders($options["proxyheaders"]);
-						unset($options["proxyheaders"]["Accept-Encoding"]);
-						foreach ($options["proxyheaders"] as $name => $val)
-						{
-							if ($name != "Content-Type" && $name != "Content-Length" && $name != "Proxy-Connection" && $name != "Host")  $proxydata .= $name . ": " . $val . "\r\n";
-						}
+						if ($name != "Content-Type" && $name != "Content-Length" && $name != "Proxy-Connection" && $name != "Host")  $proxydata .= $name . ": " . $val . "\r\n";
 					}
+
 					$proxydata .= "\r\n";
 					if (isset($options["debug_callback"]) && is_callable($options["debug_callback"]))  call_user_func_array($options["debug_callback"], array("rawproxyheaders", $proxydata, &$options["debug_callback_opts"]));
 				}

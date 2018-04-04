@@ -228,6 +228,7 @@ The $options array accepts these options:
 * method - A string containing the HTTP method to use (e.g. "GET", "POST", "HEAD").  If not specified, other parameters are analyzed to determine the most likely method to use.
 * httpver - A string containing the HTTP version to use (Default is "1.1").
 * headers - An array containing key-value pairs to send to the server.  Headers are automatically normalized for HTTP.
+* rawheaders - An array containing key-value pairs to send to the server.  Raw headers are not normalized for HTTP.
 * body - A string containing custom body content to the server.  Useful for making XMLRPC requests.  Overrides the 'files' and 'postvars' options.
 * files - An array of information containing 'name', 'filename', 'type', and 'data' for each file to send to the server in a multipart/form-data POST request.  'datafile' may also be specified instead of 'data' with a valid filename on the host for reduced memory consumption when sending large files.
 * postvars - An array of key-value pairs to send to the server in a POST request.
@@ -296,6 +297,20 @@ Parameters:
 Returns:  An array containing normalized name-value pairs.
 
 This internal static function cleans up and normalizes the names and values of a set of HTTP headers.
+
+HTTP::MergeRawHeaders(&$headers, $rawheaders)
+---------------------------------------------
+
+Access:  _internal_ static
+
+Parameters:
+
+* $headers - An array containing name-value pairs.
+* $rawheaders - An array containing name-value pairs.
+
+Returns:  Nothing.
+
+This internal static function merges an array of raw headers into another array containing a set of normalized HTTP headers.
 
 HTTP::ProcessSSLOptions(&$options, $key, $host)
 -----------------------------------------------
