@@ -353,10 +353,23 @@
 			return $state["result"];
 		}
 
-		public function Process($url, $profile = "auto", $tempoptions = array())
+		public function Process($url, $tempoptions = array())
 		{
 			$startts = microtime(true);
 			$redirectts = $startts;
+
+			// Handle older function call:  Process($url, $profile, $tempoptions)
+			if (is_string($tempoptions))
+			{
+				$args = func_get_args();
+				if (count($args) < 3)  $tempoptions = array();
+				else  $tempoptions = $args[2];
+
+				$tempoptions["profile"] = $args[1];
+			}
+
+			$profile = (isset($tempoptions["profile"]) ? $tempoptions["profile"] : "auto");
+
 			if (isset($tempoptions["timeout"]))  $timeout = $tempoptions["timeout"];
 			else if (isset($this->data["httpopts"]["timeout"]))  $timeout = $this->data["httpopts"]["timeout"];
 			else  $timeout = false;
@@ -428,7 +441,7 @@
 					if ($info["init"])  $data = $info["keep"];
 					else
 					{
-						$info["result"] = $this->Process($info["url"], $info["profile"], $info["tempoptions"]);
+						$info["result"] = $this->Process($info["url"], $info["tempoptions"]);
 						if (!$info["result"]["success"])
 						{
 							$info["keep"] = false;
@@ -494,16 +507,27 @@
 			}
 		}
 
-		public function ProcessAsync($helper, $key, $callback, $url, $profile = "auto", $tempoptions = array())
+		public function ProcessAsync($helper, $key, $callback, $url, $tempoptions = array())
 		{
 			$tempoptions["async"] = true;
+
+			// Handle older function call:  ProcessAsync($helper, $key, $callback, $url, $profile, $tempoptions)
+			if (is_string($tempoptions))
+			{
+				$args = func_get_args();
+				if (count($args) < 6)  $tempoptions = array();
+				else  $tempoptions = $args[5];
+
+				$tempoptions["profile"] = $args[4];
+			}
+
+			$profile = (isset($tempoptions["profile"]) ? $tempoptions["profile"] : "auto");
 
 			$info = array(
 				"init" => false,
 				"keep" => true,
 				"callback" => $callback,
 				"url" => $url,
-				"profile" => $profile,
 				"tempoptions" => $tempoptions,
 				"result" => false
 			);

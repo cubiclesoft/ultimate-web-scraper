@@ -44,7 +44,7 @@
 			);
 		}
 
-		$result2 = $web->Process($result["url"], "auto", $result["options"]);
+		$result2 = $web->Process($result["url"], $result["options"]);
 		if (!$result2["success"])
 		{
 			echo "An error occurred.  " . $result2["error"] . "\n";

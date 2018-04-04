@@ -178,7 +178,7 @@
 				$client->websocket->SetMaxReadMessageSize($this->defaultmaxreadmessagesize);
 
 				// Set the socket in the WebSocket class.
-				$client->websocket->Connect("", "", "", array("connected_fp" => $client->fp));
+				$client->websocket->Connect("", "", array("connected_fp" => $client->fp));
 			}
 		}
 

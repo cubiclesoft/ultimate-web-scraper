@@ -19,7 +19,7 @@ Example usage:
 	$url = "http://www.somesite.com/something/";
 	$web = new WebBrowser();
 
-	// Definition:  public function WebBrowser::Process($url, $profile = "auto", $tempoptions = array())
+	// Definition:  public function WebBrowser::Process($url, $tempoptions = array())
 	$result = $web->Process($url);
 
 	// Check for connectivity and response errors.
@@ -91,7 +91,7 @@ Example usage:
 		$form->SetFormValue("password", "passwordgoeshere");
 
 		$result = $form->GenerateFormRequest();
-		$result = $web->Process($result["url"], "auto", $result["options"]);
+		$result = $web->Process($result["url"], $result["options"]);
 
 		var_dump($result);
 	}
@@ -231,22 +231,23 @@ Returns:  A standard array of information.
 
 This internal-ish function runs the core state engine behind the scenes against the input state.  This is the primary workhorse of the WebBrowser class.
 
-WebBrowser::Process($url, $profile = "auto", $tempoptions = array())
---------------------------------------------------------------------
+WebBrowser::Process($url, $tempoptions = array())
+-------------------------------------------------
 
 Access:  public
 
 Parameters:
 
 * $url - A string containing a valid URL.
-* $profile - A string containing an empty string, "auto", or a valid GetWebUserAgent() string (Default is "auto").
 * $tempoptions - An array containing options to use for only this set of requests (Default is array()).
 
 Returns:  An array containing the results of the call.
 
-This function processes a request for a specific URL against the specified profile and the internal state of the WebBrowser instance.  When "auto" is used for $profile, it uses the "useragent" setting in the instance state.  The cURL emulation layer (emulate_curl.php) uses a $profile of "" (empty string) and relies on its own settings instead being passed through $tempoptions to accomplish similar results.  $tempoptions is used to construct an options array for a RetrieveWebpage() call.
+This function processes a request for a specific URL against the specified profile and the internal state of the WebBrowser instance.  $tempoptions is used to construct an options array for a `HTTP::RetrieveWebpage()` call.
 
 When the instance state variable "extractforms" is true, a successful result will also automatically extract forms from the HTML response.  This feature won't work as expected if body callbacks are used.
+
+A previous version of this function had the prototype of `WebBrowser::Process($url, $profile = "auto", $tempoptions = array())`.  The `profile` option is part of the `$tempoptions` array now and is a string containing an empty string, "auto", or a valid `HTTP::GetWebUserAgent()` string (Default is "auto").  The cURL emulation layer (emulate_curl.php) uses a `profile` of "" (empty string) and relies on its own settings instead being passed through `$tempoptions` to accomplish similar results.
 
 Example usage:
 
@@ -266,8 +267,8 @@ Example usage:
 ?>
 ```
 
-WebBrowser::ProcessAsync($helper, $key, $callback, $url, $profile = "auto", $tempoptions = array())
----------------------------------------------------------------------------------------------------
+WebBrowser::ProcessAsync($helper, $key, $callback, $url, $tempoptions = array())
+--------------------------------------------------------------------------------
 
 Access:  public
 
@@ -277,7 +278,6 @@ Parameters:
 * $key - A string containing a key to uniquely identify this WebBrowser instance.
 * $callback - An optional callback function to receive regular status updates on the request (specify NULL if not needed).  The callback function must accept three parameters - callback($key, $url, $result).
 * $url - A string containing a valid URL.
-* $profile - A string containing an empty string, "auto", or a valid GetWebUserAgent() string (Default is "auto").
 * $tempoptions - An array containing options to use for only this set of requests (Default is array()).
 
 Returns:  A standard array of information.
@@ -285,6 +285,8 @@ Returns:  A standard array of information.
 This function queues the request with the MultiAsyncHandler instance ($helper) for later async/non-blocking processing of the request.  Note that this function always succeeds since request failure can't be detected until after processing begins.
 
 See MultiAsyncHelper for example usage.
+
+A previous version of this function had the prototype of `ProcessAsync($helper, $key, $callback, $url, $profile = "auto", $tempoptions = array())`.  The `profile` option is part of the `$tempoptions` array now and is a string containing an empty string, "auto", or a valid `HTTP::GetWebUserAgent()` string (Default is "auto").
 
 WebBrowser::ExtractForms($baseurl, $data)
 -----------------------------------------
@@ -329,7 +331,7 @@ Example usage:
 		$form->SetFormValue("password", "passwordgoeshere");
 
 		$result = $form->GenerateFormRequest();
-		$result = $web->Process($result["url"], "auto", $result["options"]);
+		$result = $web->Process($result["url"], $result["options"]);
 
 		var_dump($result);
 	}
@@ -544,7 +546,7 @@ Example usage:
 		$result = $form->GenerateFormRequest();
 
 		// Run the next request.
-		$result = $web->Process($result["url"], "auto", $result["options"]);
+		$result = $web->Process($result["url"], $result["options"]);
 
 		var_dump($result);
 	}
@@ -597,7 +599,7 @@ Example usage:
 		// Use the first submit button for submitting the form.
 		$result = $form->GenerateFormRequest($submitbuttons[0]["name"]);
 
-		$result = $web->Process($result["url"], "auto", $result["options"]);
+		$result = $web->Process($result["url"], $result["options"]);
 
 		var_dump($result);
 	}

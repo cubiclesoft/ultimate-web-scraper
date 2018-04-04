@@ -187,8 +187,8 @@ Returns:  An integer containing the total number of bytes sent.
 
 This function retrieves the total number of bytes sent, which includes frame bytes.
 
-WebSocket::Connect($url, $origin, $profile = "auto", $options = array(), $web = false)
---------------------------------------------------------------------------------------
+WebSocket::Connect($url, $origin, $options = array(), $web = false)
+-------------------------------------------------------------------
 
 Access:  public
 
@@ -196,7 +196,6 @@ Parameters:
 
 * $url - A string containing a WebSocket URL (starts with ws:// or wss://).
 * $origin - A string containing an Origin URL.
-* $profile - A string containing a valid WebBrowser class profile string (default is "auto").
 * $options - An array of valid WebBrowser class options (Default is array()).
 * $web - A valid WebBrowser class instance (default is false, which means one will be created).
 

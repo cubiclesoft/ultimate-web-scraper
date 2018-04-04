@@ -872,7 +872,8 @@
 			$curl_init__map[$key]["outputbody"] = false;
 
 			// Process the request.
-			$result = $curl_init__map[$key]["browser"]->Process($url, "", $options);
+			$options["profile"] = "";
+			$result = $curl_init__map[$key]["browser"]->Process($url, $options);
 			$curl_init__map[$key]["lastresult"] = $result;
 
 			// Deal with cookies.
