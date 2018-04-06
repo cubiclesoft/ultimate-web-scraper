@@ -1,7 +1,7 @@
-HTTP Class: 'support/http.php'
-==============================
+HTTP Class:  'support/http.php'
+===============================
 
-This class is designed to perform the first half of a process known as "[web scraping](http://en.wikipedia.org/wiki/Web_scraping)".  Web scraping is essentially retrieving content from the web, parsing the content, and extracting whatever data is needed for whatever nefarious purposes the user has in mind.  However, I'm not responsible with what you choose to do with this class.  The class contains incredibly powerful PHP routines that go far beyond what PHP cURL or file_get_contents() calls typically do is therefore quite easy to create web requests that look exactly like they came from a web browser.
+This class is designed to perform the first half of a process known as "[web scraping](http://en.wikipedia.org/wiki/Web_scraping)".  Web scraping is essentially retrieving content from the web, parsing the content, and extracting whatever data is needed for whatever nefarious purposes the user has in mind.  However, I'm not responsible with what you choose to do with this class.  The class contains incredibly powerful PHP routines that go far beyond what PHP cURL or file_get_contents() calls typically do and is therefore quite easy to create web requests that look exactly like they came from a web browser.
 
 You are encouraged to use the higher-level WebBrowser class, which manages things like cookies and redirects and can extract and process forms just like a real web browser.  The bulk of the HTTP class is intended to be a low-level layer.  WebBrowser uses the HTTP class under the hood but adds necessary magical goodness to handle various missing pieces.
 
@@ -20,7 +20,7 @@ Returns:  An array containing the URL split up into its component pieces accordi
 
 This static function takes apart a URL and breaks it up into "scheme", "authority", "login", "host", "port", "path", "query", "queryvars", and "fragment" pieces.  In many cases, this function works where the PHP parse_url() function fails.  It also breaks up the query string (the part after the question mark '?') into name => array of values pairs.
 
-This function can also occasionally handle broken/incomplete URLs but don't rely on that.  This function can handle more URLs and is more accurate than the built-in parse_url() function in PHP.
+This static function can also occasionally handle broken/incomplete URLs but don't rely on that.  This function can handle more URLs and is more accurate than the built-in parse_url() function in PHP.
 
 Example usage:
 
@@ -206,7 +206,7 @@ Parameters:
 * $url - A string containing the URL to retrieve.
 * $options - An array containing options that control the request to the server (Default is array()).
 
-Returns:  An array containing the results of the call.
+Returns:  A standard array of information.
 
 This static function retrieves a webpage.  It has full HTTP and HTTPS support.  It can upload files, perform GET, POST, HEAD, PUT, and custom requests, and can even place requests through a HTTP proxy server.  It handles chunked data responses, provides detailed responses, and has support for callbacks.  It can also be used to precisely emulate a web browser.
 
@@ -367,8 +367,8 @@ Returns:  A boolean of false if $limit is false, 0 if the time limit has been re
 
 This internal static function is used to calculate whether an operation has taken too long and then terminate the connection.
 
-HTTP::ProcessRateLimit($size, $start, $limit)
----------------------------------------------
+HTTP::ProcessRateLimit($size, $start, $limit, $async)
+-----------------------------------------------------
 
 Access:  private static
 
@@ -377,8 +377,9 @@ Parameters:
 * $size - An integer containing the number of bytes transferred.
 * $start - A numeric value containing a UNIX timestamp of a start time.
 * $limit - An integer representing the maximum acceptable rate in bytes/sec.
+* $async - A boolean indicating whether or not the function should not sleep (async caller).
 
-Returns:  Nothing.
+Returns:  An integer containing the amount of time to wait for (async only), -1 otherwise.
 
 This internal static function calculates the current rate at which bytes are being transferred over the network.  If the rate exceeds the limit, it calculates exactly how long to wait and then sleeps for that amount of time so that the average transfer rate is within the limit.
 
