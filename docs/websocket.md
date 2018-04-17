@@ -53,6 +53,10 @@ Another example:
 
 https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/tests/test_websocket_client.php
 
+The WebSocket class manages two queues - a read queue and a write queue - and does most of its work in the `Wait()` function.  WebSocket control frames are automatically handled by the WebSocket class.
+
+The `Connect()` and `Disconnect()` functions are blocking in client mode, non-blocking in server mode.
+
 WebSocket::Reset()
 ------------------
 

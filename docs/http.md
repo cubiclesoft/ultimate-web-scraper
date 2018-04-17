@@ -1,11 +1,74 @@
 HTTP Class:  'support/http.php'
 ===============================
 
-This class is designed to perform the first half of a process known as "[web scraping](http://en.wikipedia.org/wiki/Web_scraping)".  Web scraping is essentially retrieving content from the web, parsing the content, and extracting whatever data is needed for whatever nefarious purposes the user has in mind.  However, I'm not responsible with what you choose to do with this class.  The class contains incredibly powerful PHP routines that go far beyond what PHP cURL or file_get_contents() calls typically do and is therefore quite easy to create web requests that look exactly like they came from a web browser.
+The HTTP class is designed to perform the first half of a process known as "[web scraping](http://en.wikipedia.org/wiki/Web_scraping)".  Web scraping is essentially retrieving content from the web, parsing the content, and extracting whatever data is needed for whatever nefarious purposes the user has in mind.  However, I'm not responsible with what you choose to do with this class.  The class contains incredibly powerful PHP routines that go far beyond what PHP cURL or file_get_contents() calls typically do and is therefore quite easy to create web requests that look exactly like they came from a web browser.
 
 You are encouraged to use the higher-level WebBrowser class, which manages things like cookies and redirects and can extract and process forms just like a real web browser.  The bulk of the HTTP class is intended to be a low-level layer.  WebBrowser uses the HTTP class under the hood but adds necessary magical goodness to handle various missing pieces.
 
 You'll also get extensive mileage out of HTTP::ExtractURL() and HTTP::ConvertRelativeToAbsoluteURL().
+
+Example HTTP class usage:
+
+```php
+<?php
+	require_once "support/http.php";
+	require_once "support/tag_filter.php";
+
+	// Retrieve the standard HTML parsing array for later use.
+	$htmloptions = TagFilter::GetHTMLOptions();
+
+	$url = "http://www.somesite.com/something/";
+	$options = array(
+		"headers" => array(
+			"User-Agent" => HTTP::GetWebUserAgent("Firefox"),
+			"Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept-Language" => "en-us,en;q=0.5",
+			"Accept-Charset" => "ISO-8859-1,utf-8;q=0.7,*;q=0.7",
+			"Cache-Control" => "max-age=0"
+		)
+	);
+	$result = HTTP::RetrieveWebpage($url, $options);
+
+	if (!$result["success"])
+	{
+		echo "Error retrieving URL.  " . $result["error"] . "\n";
+		exit();
+	}
+
+	if ($result["response"]["code"] != 200)
+	{
+		echo "Error retrieving URL.  Server returned:  " . $result["response"]["code"] . " " . $result["response"]["meaning"] . "\n";
+		exit();
+	}
+
+	// Get the final URL after redirects.
+	$baseurl = $result["url"];
+
+	// Use TagFilter to parse the content.
+	$html = TagFilter::Explode($result["body"], $htmloptions);
+
+	// Retrieve a pointer object to the root node.
+	$root = $html->Get();
+
+	// Find all anchor tags.
+	echo "All the URLs:\n";
+	$rows = $root->Find("a[href]");
+	foreach ($rows as $row)
+	{
+		echo "\t" . $row->href . "\n";
+		echo "\t" . HTTP::ConvertRelativeToAbsoluteURL($baseurl, $row->href) . "\n";
+	}
+
+	// Find all table rows that have 'th' tags.
+	$rows = $root->Find("tr")->Filter("th");
+	foreach ($rows as $row)
+	{
+		echo "\t" . $row->GetOuterHTML() . "\n\n";
+	}
+?>
+```
+
+The above example doesn't get all the convenient benefits of the WebBrowser class such as automatically handling redirects and cookies.  In general, prefer using the WebBrowser class.
 
 HTTP::ExtractURL($url)
 ----------------------

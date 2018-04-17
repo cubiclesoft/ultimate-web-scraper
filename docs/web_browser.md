@@ -18,36 +18,44 @@ Example usage:
 	// Retrieve a URL.
 	$url = "http://www.somesite.com/something/";
 	$web = new WebBrowser();
-
-	// Definition:  public function WebBrowser::Process($url, $tempoptions = array())
 	$result = $web->Process($url);
 
 	// Check for connectivity and response errors.
-	if (!$result["success"])  echo "Error retrieving URL.  " . $result["error"] . "\n";
-	else if ($result["response"]["code"] != 200)  echo "Error retrieving URL.  Server returned:  " . $result["response"]["code"] . " " . $result["response"]["meaning"] . "\n";
-	else
+	if (!$result["success"])
 	{
-		// Use TagFilter to parse the content.
-		$html = TagFilter::Explode($result["body"], $htmloptions);
+		echo "Error retrieving URL.  " . $result["error"] . "\n";
+		exit();
+	}
 
-		// Retrieve a pointer object to the root node.
-		$root = $html->Get();
+	if ($result["response"]["code"] != 200)
+	{
+		echo "Error retrieving URL.  Server returned:  " . $result["response"]["code"] . " " . $result["response"]["meaning"] . "\n";
+		exit();
+	}
 
-		// Find all anchor tags.
-		echo "All the URLs:\n";
-		$rows = $root->Find("a[href]");
-		foreach ($rows as $row)
-		{
-			// Somewhat slower access.
-			echo "\t" . $row->href . "\n";
-		}
+	// Get the final URL after redirects.
+	$baseurl = $result["url"];
 
-		// Find all table rows that have 'th' tags.
-		$rows = $root->Find("tr")->Filter("th");
-		foreach ($rows as $row)
-		{
-			echo "\t" . $row->GetOuterHTML() . "\n\n";
-		}
+	// Use TagFilter to parse the content.
+	$html = TagFilter::Explode($result["body"], $htmloptions);
+
+	// Retrieve a pointer object to the root node.
+	$root = $html->Get();
+
+	// Find all anchor tags.
+	echo "All the URLs:\n";
+	$rows = $root->Find("a[href]");
+	foreach ($rows as $row)
+	{
+		echo "\t" . $row->href . "\n";
+		echo "\t" . HTTP::ConvertRelativeToAbsoluteURL($baseurl, $row->href) . "\n";
+	}
+
+	// Find all table rows that have 'th' tags.
+	$rows = $root->Find("tr")->Filter("th");
+	foreach ($rows as $row)
+	{
+		echo "\t" . $row->GetOuterHTML() . "\n\n";
 	}
 ?>
 ```
