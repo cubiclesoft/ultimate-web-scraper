@@ -401,6 +401,7 @@ Uploading Files
 
 File uploads are handled several different ways so that very large files can be processed.  The "files" option is an array of arrays that represents one or more files to upload.  File uploads will automatically switch a POST request's `Content-Type` from "application/x-www-form-urlencoded" to "multipart/form-data".
 
+```php
 <?php
 	require_once "support/web_browser.php";
 
@@ -443,6 +444,7 @@ File uploads are handled several different ways so that very large files can be 
 
 	// Do something with the response.
 ?>
+```
 
 Each file in the "files" array must have the following options:
 
