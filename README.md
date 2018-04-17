@@ -597,7 +597,7 @@ Example:
 ?>
 ```
 
-One other useful tip is to attempt to use wildcard SQL characters or text patterns to extract more data than the website operator likely intended.  If a search box requires some field to be filled in for a search to be accepted, try a single '%' to see if the server is accepting wildcard LIKE queries.  If not, then maybe walking through the set of possible alphanumeric values will work (e.g. "a", "b", "c", "d") and then being careful exclude duplicated data (e.g. "XYZ, Inc." would show up in six different search result sets).
+One other useful tip is to attempt to use wildcard SQL characters or text patterns to extract more data than the website operator likely intended.  If a search box requires some field to be filled in for a search to be accepted, try a single '%' to see if the server is accepting wildcard LIKE queries.  If not, then maybe walking through the set of possible alphanumeric values will work (e.g. "a", "b", "c", "d") and then being careful to exclude duplicated data (e.g. "XYZ, Inc." would show up in six different search result sets).
 
 Another useful tip is to be aware of URLs for detail pages.  For example, when viewing details about an item from a search and the item has "id=2018000001" in the URL for that page and then another item has "id=2017003449", then there may be a predictable pattern of year + sequence within that year as part of the ID for any given item.  Searching may not even be necessary as it may be possible to generate the URL dynamically (e.g. "id=2018000001", "id=2018000002", "id=2018000003") if the goal is to copy all records.
 
