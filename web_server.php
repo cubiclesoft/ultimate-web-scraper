@@ -860,7 +860,12 @@
 			{
 				if ($client->lastts + $this->defaultclienttimeout < $ts)
 				{
-					if ($client->requests)  $result["removed"][$id] = array("result" => $result2, "client" => $client);
+					if ($client->requests)
+					{
+						$result2 = array("success" => false, "error" => HTTP::HTTPTranslate("Client timed out.  Most likely cause:  Connection failure."), "errorcode" => "client_timeout");
+
+						$result["removed"][$id] = array("result" => $result2, "client" => $client);
+					}
 
 					$this->RemoveClient($id);
 				}
