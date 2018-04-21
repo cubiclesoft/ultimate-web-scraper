@@ -130,7 +130,7 @@ This function attempts to bind to the specified TCP/IP host and port.  Common op
 * `0.0.0.0` to bind to all IPv4 interfaces.
 * `127.0.0.1` to bind to the localhost IPv4 interface.
 * `[::0]` to bind to all IPv6 interfaces.
-* `[fe80::1]` to bind to the localhost IPv6 interface.
+* `[::1]` to bind to the localhost IPv6 interface.
 
 To select a new port number for a server, use the following link:
 
