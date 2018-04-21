@@ -217,7 +217,7 @@ Parameters:
 
 Returns:  A standard array of information.
 
-This function handles new connections, the initial conversation, basic packet management, rate limits, and timeouts.  The returned "clients" and "removed" arrays contains clients that may need processing.  This function is expected to be part of a loop.
+This function handles new connections, the initial conversation, basic packet management, rate limits, and timeouts.  The returned "clients" and "removed" arrays contain clients that may need processing.  This function is expected to be part of a loop.
 
 Example usage:
 
@@ -365,7 +365,7 @@ Parameters:  None.
 
 Returns:  A new WebServer_Client instance.
 
-This internal function creates a new client and adds it to the initclients array.  The following public variables are available for applications to access in a read-only fashion:
+This internal function creates a new client and adds it to the `initclients` array.  The following public variables are available for applications to access in a read-only fashion:
 
 * id - The client ID.
 * readdata - Contains or points to the request body if the 'contenthandled' is false.
