@@ -764,6 +764,8 @@
 
 							foreach ($client->files as $filename => $tempfile)
 							{
+								$client->files[$filename]->Free();
+
 								unset($client->files[$filename]);
 							}
 
@@ -907,10 +909,9 @@
 				$client = $this->clients[$id];
 
 				// Remove the client.
-				foreach ($client->files as $filename => $fp2)
+				foreach ($client->files as $filename => $tempfile)
 				{
-					@fclose($fp2);
-					@unlink($filename);
+					$client->files[$filename]->Free();
 				}
 
 				if ($client->fp !== false)  @fclose($client->fp);
@@ -925,13 +926,6 @@
 	class WebServer_TempFile
 	{
 		public $fp, $filename;
-
-		public function __destruct()
-		{
-			$this->Close();
-
-			@unlink($this->filename);
-		}
 
 		public function Open()
 		{
@@ -963,6 +957,13 @@
 			if (is_resource($this->fp))  @fclose($this->fp);
 
 			$this->fp = false;
+		}
+
+		public function Free()
+		{
+			$this->Close();
+
+			@unlink($this->filename);
 		}
 	}
 
