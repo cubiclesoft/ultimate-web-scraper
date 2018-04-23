@@ -498,7 +498,7 @@ Parameters:
 
 Returns:  A string on success, a boolean of false otherwise.
 
-This function attempts to read up to $size bytes of input from the file.  False is only returned if the file handle is closed as a result of running out of input from the previous call.
+This function attempts to read up to $size bytes of input from the file.  False is only returned if the file handle is closed as a result of running out of input from the previous `Read()` call.
 
 WebServer_TempFile::Write($data)
 --------------------------------
@@ -522,7 +522,18 @@ Parameters:  None.
 
 Returns:  Nothing.
 
-This function closes the open file handle if it is open.  This function is automatically called when Read() runs out of input or the class destructor is called.
+This function closes the open file handle if it is open.  This function is automatically called when Read() runs out of input.
+
+WebServer_TempFile::Free()
+--------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  Nothing.
+
+This function closes the open file handle if it is open and deletes the file from disk.
 
 
 WebServer_Client Class
