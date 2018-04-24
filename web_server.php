@@ -335,7 +335,7 @@
 														@unlink($filename);
 														$tempfile = new WebServer_TempFile();
 														$tempfile->filename = $filename;
-														$tempfile->Open();
+														if ($tempfile->Open() === false)  return false;
 
 														$client->files[$filename] = $tempfile;
 														$this->AddClientRecvHeader($id, $client->mime_contentdisposition["name"], $tempfile);
@@ -406,7 +406,7 @@
 							@unlink($filename);
 							$tempfile = new WebServer_TempFile();
 							$tempfile->filename = $filename;
-							$tempfile->Open();
+							if ($tempfile->Open() === false)  return false;
 
 							$client->files[$filename] = $tempfile;
 							$client->files[$filename]->Write($client->readdata);
