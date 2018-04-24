@@ -931,7 +931,7 @@
 		{
 			$this->Close();
 
-			$this->fp = @fopen($this->filename, "w+b");
+			$this->fp = fopen($this->filename, "w+b");
 
 			return $this->fp;
 		}
@@ -940,7 +940,7 @@
 		{
 			if ($this->fp === false)  return false;
 
-			$data = @fread($this->fp, $size);
+			$data = fread($this->fp, $size);
 			if ($data === false || feof($this->fp))  $this->Close();
 			if ($data === false)  $data = "";
 
@@ -954,7 +954,7 @@
 
 		public function Close()
 		{
-			if (is_resource($this->fp))  @fclose($this->fp);
+			if (is_resource($this->fp))  fclose($this->fp);
 
 			$this->fp = false;
 		}
@@ -963,7 +963,7 @@
 		{
 			$this->Close();
 
-			@unlink($this->filename);
+			unlink($this->filename);
 		}
 	}
 
