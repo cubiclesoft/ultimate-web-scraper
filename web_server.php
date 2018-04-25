@@ -329,10 +329,10 @@
 													{
 														if ($client->currfile !== false)  $client->files[$client->currfile]->Close();
 
-														$filename = $this->cachedir . $id . "_" . count($client->files) . ".dat";
+														$filename = $this->cachedir . $id . "_" . $client->requests . "_" . count($client->files) . ".dat";
 														$client->currfile = $filename;
 
-														@unlink($filename);
+														if (file_exists($filename))  @unlink($filename);
 														$tempfile = new WebServer_TempFile();
 														$tempfile->filename = $filename;
 														if ($tempfile->Open() === false)  return false;
@@ -400,10 +400,10 @@
 						{
 							$client->contenthandled = false;
 
-							$filename = $this->cachedir . $id . ".dat";
+							$filename = $this->cachedir . $id . "_" . $client->requests . ".dat";
 							$client->currfile = $filename;
 
-							@unlink($filename);
+							if (file_exists($filename))  @unlink($filename);
 							$tempfile = new WebServer_TempFile();
 							$tempfile->filename = $filename;
 							if ($tempfile->Open() === false)  return false;
