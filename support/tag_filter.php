@@ -2038,7 +2038,12 @@
 						$newnodes = new TagFilterNodes();
 						$newpid = 0;
 
-						if ($keepidparents)
+						if ($keepidparents instanceof TagFilterNodes)
+						{
+							$newnodes = clone $keepidparents;
+							$newpid = $newnodes->nextid - 1;
+						}
+						else if ($keepidparents)
 						{
 							$stack = array();
 							$id2 = $this->nodes[$id]["parent"];

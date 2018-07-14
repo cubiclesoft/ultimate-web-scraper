@@ -830,7 +830,7 @@ Access:  public
 Parameters:
 
 * $ids - An integer or an array containing one or more node IDs.
-* $keepidparents - A boolean indicating whether or not to keep the parent elements of matching IDs in the new TagFilterNodes instances (Default is false).
+* $keepidparents - A boolean indicating whether or not to keep the parent elements of matching IDs or a TagFilterNodes instance to use for the parents in the new TagFilterNodes instances (Default is false).
 
 Returns:  An array of TagFilterNodes.
 
