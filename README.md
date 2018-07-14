@@ -32,6 +32,8 @@ Features
 Getting Started
 ---------------
 
+[![Web Scraping - Techniques and tools of the trade](https://user-images.githubusercontent.com/1432111/42725116-523907e6-8733-11e8-8322-71631f5e198a.png "Watch video")](https://www.youtube.com/watch?v=54tB8t1r0og)
+
 Example object-oriented usage:
 
 ```php
