@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP HTTP class.
-	// (C) 2017 CubicleSoft.  All Rights Reserved.
+	// (C) 2018 CubicleSoft.  All Rights Reserved.
 
 	class HTTP
 	{
@@ -542,7 +542,7 @@
 			return $info["timed_out"];
 		}
 
-		public static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close, $client = true)
+		public static function InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close, $nextread, $client = true)
 		{
 			$state = array(
 				"fp" => $fp,
@@ -564,6 +564,7 @@
 				"options" => $options,
 				"result" => $result,
 				"close" => $close,
+				"nextread" => $nextread,
 				"client" => $client
 			);
 
@@ -575,13 +576,74 @@
 			return $state;
 		}
 
+		// Handles partially read input.  Also deals with the hacky workaround to the second bugfix in ProcessState__WriteData().
+		private static function ProcessState__InternalRead(&$state, $size, $endchar = false)
+		{
+			$y = strlen($state["nextread"]);
+			if ($size <= $y)
+			{
+				if ($endchar === false)  $pos = $size;
+				else
+				{
+					$pos = strpos($state["nextread"], $endchar);
+					if ($pos === false)  $pos = $size;
+					else  $pos++;
+				}
+
+				$data = substr($state["nextread"], 0, $pos);
+				$state["nextread"] = (string)substr($state["nextread"], $pos);
+
+				return $data;
+			}
+
+			if ($endchar !== false)
+			{
+				$pos = strpos($state["nextread"], $endchar);
+				if ($pos !== false)
+				{
+					$data = substr($state["nextread"], 0, $pos + 1);
+					$state["nextread"] = (string)substr($state["nextread"], $pos + 1);
+
+					return $data;
+				}
+			}
+
+			$data = $state["nextread"];
+			$state["nextread"] = "";
+			$size -= $y;
+
+			do
+			{
+				if ($state["debug"])  $data2 = fread($state["fp"], $size);
+				else  $data2 = @fread($state["fp"], $size);
+
+				if ($data2 === false || $data2 === "")  return ($data !== "" ? $data : $data2);
+
+				if ($endchar !== false)
+				{
+					$pos = strpos($data2, $endchar);
+					if ($pos !== false)
+					{
+						$data .= substr($data2, 0, $pos + 1);
+						$state["nextread"] = (string)substr($data2, $pos + 1);
+
+						return $data;
+					}
+				}
+
+				$data .= $data2;
+				$size -= strlen($data2);
+			} while ($size > 0 && $endchar !== false);
+
+			return $data;
+		}
+
 		// Reads one or more lines in.
 		private static function ProcessState__ReadLine(&$state)
 		{
 			while (strpos($state["data"], "\n") === false)
 			{
-				if ($state["debug"])  $data2 = fgets($state["fp"], 116000);
-				else  $data2 = @fgets($state["fp"], 116000);
+				$data2 = self::ProcessState__InternalRead($state, 116000, "\n");
 
 				if ($data2 === false || $data2 === "")
 				{
@@ -618,8 +680,7 @@
 		{
 			while ($state["sizeleft"] === false || $state["sizeleft"] > 0)
 			{
-				if ($state["debug"])  $data2 = fread($state["fp"], ($state["sizeleft"] === false || $state["sizeleft"] > 65536 ? 65536 : $state["sizeleft"]));
-				else  $data2 = @fread($state["fp"], ($state["sizeleft"] === false || $state["sizeleft"] > 65536 ? 65536 : $state["sizeleft"]));
+				$data2 = self::ProcessState__InternalRead($state, ($state["sizeleft"] === false || $state["sizeleft"] > 65536 ? 65536 : $state["sizeleft"]));
 
 				if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
 				if ($data2 === "")
@@ -675,9 +736,28 @@
 				}
 
 				if ($result === false || feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("A fwrite() failure occurred.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
+
+				// Serious bug in PHP core for all socket types:  https://bugs.php.net/bug.php?id=73535
+				if ($result === 0)
+				{
+					// Temporarily switch to non-blocking sockets and test a one byte read (doesn't matter if data is available or not).
+					// This is a bigger hack than the first hack above.
+					if (!$state["async"])  @stream_set_blocking($state["fp"], 0);
+
+					if ($state["debug"])  $data2 = fread($state["fp"], 1);
+					else  $data2 = @fread($state["fp"], 1);
+
+					if ($data2 === false)  return array("success" => false, "error" => self::HTTPTranslate("Underlying stream encountered a read error."), "errorcode" => "stream_read_error");
+					if ($data2 === "" && feof($state["fp"]))  return array("success" => false, "error" => self::HTTPTranslate("Remote peer disconnected."), "errorcode" => "peer_disconnected");
+
+					if ($data2 !== "")  $state["nextread"] .= $data2;
+
+					if (!$state["async"])  @stream_set_blocking($state["fp"], 1);
+				}
+
 				if ($state["timeout"] !== false && self::GetTimeLeft($state["startts"], $state["timeout"]) == 0)  return array("success" => false, "error" => self::HTTPTranslate("HTTP timeout exceeded."), "errorcode" => "timeout_exceeded");
 
-				$data2 = substr($state[$prefix . "data"], 0, $result);
+				$data2 = (string)substr($state[$prefix . "data"], 0, $result);
 				$state[$prefix . "data"] = (string)substr($state[$prefix . "data"], $result);
 
 				$state["result"]["rawsendsize"] += $result;
@@ -727,12 +807,12 @@
 
 		public static function WantRead(&$state)
 		{
-			return ($state["type"] === "response" || $state["state"] === "proxy_connect_response" || $state["state"] === "receive_switch");
+			return ($state["type"] === "response" || $state["state"] === "proxy_connect_response" || $state["state"] === "receive_switch" || $state["state"] === "connecting_enable_crypto" || $state["state"] === "proxy_connect_enable_crypto");
 		}
 
 		public static function WantWrite(&$state)
 		{
-			return !self::WantRead($state);
+			return (!self::WantRead($state) || $state["state"] === "connecting_enable_crypto" || $state["state"] === "proxy_connect_enable_crypto");
 		}
 
 		public static function ProcessState(&$state)
@@ -762,6 +842,28 @@
 								if (!count($writefp))  return array("success" => false, "error" => self::HTTPTranslate("Connection not established yet."), "errorcode" => "no_data");
 							}
 
+							// Deal with failed connections that hang applications.
+							if (isset($state["options"]["streamtimeout"]) && $state["options"]["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($state["fp"], $state["options"]["streamtimeout"]);
+
+							// Switch to the next state.
+							if ($state["async"] && function_exists("stream_socket_client") && (($state["useproxy"] && $state["proxysecure"]) || (!$state["useproxy"] && $state["secure"])))  $state["state"] = "connecting_enable_crypto";
+							else  $state["state"] = "connection_ready";
+
+							break;
+						}
+						case "connecting_enable_crypto":
+						{
+							// This is only used by clients that connect asynchronously via SSL.
+							if ($state["debug"])  $result = stream_socket_enable_crypto($state["fp"], true, STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
+							else  $result = @stream_socket_enable_crypto($state["fp"], true, STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
+
+							if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_socket_enable_crypto() failure occurred.  Most likely cause:  Connection failure or incompatible crypto setup."), "errorcode" => "stream_socket_enable_crypto_failed"));
+							else if ($result === true)  $state["state"] = "connection_ready";
+
+							break;
+						}
+						case "connection_ready":
+						{
 							// Handle peer certificate retrieval.
 							if (function_exists("stream_context_get_options"))
 							{
@@ -789,9 +891,6 @@
 									}
 								}
 							}
-
-							// Deal with failed connections that hang applications.
-							if (isset($state["options"]["streamtimeout"]) && $state["options"]["streamtimeout"] !== false && function_exists("stream_set_timeout"))  @stream_set_timeout($state["fp"], $state["options"]["streamtimeout"]);
 
 							$state["result"]["connected"] = microtime(true);
 
@@ -826,7 +925,7 @@
 								$options2["debug_callback"] = $state["options"]["debug_callback"];
 								$options2["debug_callback_opts"] = $state["options"]["debug_callback_opts"];
 							}
-							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], $state["close"]);
+							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], $state["close"], $state["nextread"]);
 
 							$state["state"] = "proxy_connect_response";
 
@@ -846,7 +945,37 @@
 							// Proxy connect tunnel established.  Proceed normally.
 							$state["result"]["sendstart"] = microtime(true);
 
-							$state["state"] = "send_data";
+							if ($state["secure"])  $state["state"] = "proxy_connect_enable_crypto";
+							else  $state["state"] = "send_data";
+
+							break;
+						}
+						case "proxy_connect_enable_crypto":
+						{
+							if ($state["debug"])  $result = stream_socket_enable_crypto($state["fp"], true, STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
+							else  $result = @stream_socket_enable_crypto($state["fp"], true, STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
+
+							if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_socket_enable_crypto() failure occurred.  Most likely cause:  Tunnel connection failure or incompatible crypto setup."), "errorcode" => "stream_socket_enable_crypto_failed"));
+							else if ($result === true)
+							{
+								// Handle peer certificate retrieval.
+								if (function_exists("stream_context_get_options"))
+								{
+									$contextopts = stream_context_get_options($state["fp"]);
+
+									if (isset($state["options"]["sslopts"]) && is_array($state["options"]["sslopts"]))
+									{
+										if (isset($state["options"]["peer_cert_callback"]) && is_callable($state["options"]["peer_cert_callback"]))
+										{
+											if (isset($contextopts["ssl"]["peer_certificate"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercert", $contextopts["ssl"]["peer_certificate"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+											if (isset($contextopts["ssl"]["peer_certificate_chain"]) && !call_user_func_array($state["options"]["peer_cert_callback"], array("peercertchain", $contextopts["ssl"]["peer_certificate_chain"], &$state["options"]["peer_cert_callback_opts"])))  return array("success" => false, "error" => self::HTTPTranslate("Peer certificate callback returned with a failure condition."), "errorcode" => "peer_cert_callback");
+										}
+									}
+								}
+
+								// Secure connection established.
+								$state["state"] = "send_data";
+							}
 
 							break;
 						}
@@ -1005,7 +1134,7 @@
 				}
 
 				// The request has been sent.  Change the state to a response state.
-				$state = self::InitResponseState($state["fp"], $state["debug"], $state["options"], $state["startts"], $state["timeout"], $state["result"], $state["close"]);
+				$state = self::InitResponseState($state["fp"], $state["debug"], $state["options"], $state["startts"], $state["timeout"], $state["result"], $state["close"], $state["nextread"]);
 
 				// Run one cycle.
 				return self::ProcessState($state);
@@ -1346,7 +1475,8 @@
 			if ($url["scheme"] != "http" && $url["scheme"] != "https")  return array("success" => false, "error" => self::HTTPTranslate("RetrieveWebpage() only supports the 'http' and 'https' protocols."), "errorcode" => "protocol_check");
 
 			$secure = ($url["scheme"] == "https");
-			$protocol = ($secure ? (isset($options["protocol"]) ? strtolower($options["protocol"]) : "ssl") : "tcp");
+			$async = (isset($options["async"]) ? $options["async"] : false);
+			$protocol = ($secure && !$async ? (isset($options["protocol"]) ? strtolower($options["protocol"]) : "ssl") : "tcp");
 			if (function_exists("stream_get_transports") && !in_array($protocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport protocol '%s' is not installed.", $protocol), "errorcode" => "transport_not_installed");
 			$host = str_replace(" ", "-", self::HeaderValueCleanup($url["host"]));
 			if ($host == "")  return array("success" => false, "error" => self::HTTPTranslate("Invalid URL."));
@@ -1373,7 +1503,8 @@
 				$proxyurl = self::ExtractURL($proxyurl);
 
 				$proxysecure = ($proxyurl["scheme"] == "https");
-				$proxyprotocol = ($proxysecure ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "ssl") : "tcp");
+				if ($proxysecure && $secure)  return array("success" => false, "error" => self::HTTPTranslate("The PHP SSL sockets implementation does not support tunneled SSL/TLS connections over SSL/TLS."), "errorcode" => "multi_ssl_tunneling_not_supported");
+				$proxyprotocol = ($proxysecure && !$async ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "ssl") : "tcp");
 				if (function_exists("stream_get_transports") && !in_array($proxyprotocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport proxy protocol '%s' is not installed.", $proxyprotocol), "errorcode" => "proxy_transport_not_installed");
 				$proxyhost = str_replace(" ", "-", self::HeaderValueCleanup($proxyurl["host"]));
 				$proxyport = ((int)$proxyurl["port"] ? (int)$proxyurl["port"] : ($proxysecure ? 443 : 80));
@@ -1583,9 +1714,15 @@
 						self::ProcessSSLOptions($options, "proxysslopts", $host);
 						foreach ($options["proxysslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
+					else if ($secure)
+					{
+						if (!isset($options["sslopts"]) || !is_array($options["sslopts"]))  $options["sslopts"] = self::GetSafeSSLOpts();
+						self::ProcessSSLOptions($options, "sslopts", $host);
+						foreach ($options["sslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
+					}
 
-					if ($debug)  $fp = stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
-					else  $fp = @stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
+					if ($debug)  $fp = stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], ($async ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
+					else  $fp = @stream_socket_client($proxyprotocol . "://" . $proxyhost . ":" . $proxyport, $errornum, $errorstr, $options["proxyconnecttimeout"], ($async ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
 				}
 
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($proxysecure ? $proxyprotocol . "://" : "") . $proxyhost . ":" . $proxyport), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "proxy_connect");
@@ -1611,20 +1748,20 @@
 						foreach ($options["sslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
 
-					if ($debug)  $fp = stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
-					else $fp = @stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], (isset($options["async"]) && $options["async"] ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
+					if ($debug)  $fp = stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], ($async ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
+					else $fp = @stream_socket_client($protocol . "://" . $host . ":" . $port, $errornum, $errorstr, $options["connecttimeout"], ($async ? STREAM_CLIENT_ASYNC_CONNECT : STREAM_CLIENT_CONNECT), $context);
 				}
 
 				if ($fp === false)  return array("success" => false, "error" => self::HTTPTranslate("Unable to establish a connection to '%s'.", ($secure ? $protocol . "://" : "") . $host . ":" . $port), "info" => $errorstr . " (" . $errornum . ")", "errorcode" => "connect_failed");
 			}
 
-			if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, (isset($options["async"]) && $options["async"] ? 0 : 1));
+			if (function_exists("stream_set_blocking"))  @stream_set_blocking($fp, ($async ? 0 : 1));
 
 			// Initialize the connection request state array.
 			$state = array(
 				"fp" => $fp,
 				"type" => "request",
-				"async" => (isset($options["async"]) ? $options["async"] : false),
+				"async" => $async,
 				"debug" => $debug,
 				"startts" => $startts,
 				"timeout" => $timeout,
@@ -1645,6 +1782,7 @@
 				"options" => $options,
 				"result" => $result,
 				"close" => ($options["headers"]["Connection"] === "close"),
+				"nextread" => "",
 				"client" => true
 			);
 

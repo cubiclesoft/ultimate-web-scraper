@@ -473,8 +473,8 @@ Returns:  A boolean of true if the underlying socket has timed out, false otherw
 
 This internal static function calls `stream_get_meta_data()` to determine the validity of the socket.
 
-HTTP::InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close, $client = true)
----------------------------------------------------------------------------------------------------
+HTTP::InitResponseState($fp, $debug, $options, $startts, $timeout, $result, $close, $nextread, $client = true)
+--------------------------------------------------------------------------------------------------------------
 
 Access:  _internal_ static
 
@@ -486,11 +486,27 @@ Parameters:
 * $startts - An integer indicating when the request was started.
 * $timeout - An integer or a boolean of false to indicate when an automatic timeout should take place.
 * $close - A boolean indicating that the connection should terminate after the response.
+* $nextread - A string containing the excess bytes of the stream that were read in previously using fread().
 * $client - A boolean indicating whether this response state is operating in client (true) or server (false) mode (Default is true).
 
 Returns:  A prepared HTTP state array containing the necessary information for later use.
 
 This internal static function initializes the state management array for use with HTTP::ProcessState() along the response path.
+
+HTTP::ProcessState__InternalRead(&$state, $size, $endchar = false)
+------------------------------------------------------------------
+
+Access:  private static
+
+Parameters:
+
+* $state - A valid HTTP state array.
+* $size - An integer containing the maximum length to read in.
+* $endchar - A boolean of false or a string containing a single character to stop reading after (Default is false).
+
+Returns:  Normalized fread() output.
+
+This internal static function gets rid of the old fgets() line-by-line retrieval mechanism used by `ProcessState__ReadLine()` and standardizes on fread() with an internal cache.  Doing this also helps to work around a number of bugs in PHP.
 
 HTTP::ProcessState__ReadLine(&$state)
 -------------------------------------
