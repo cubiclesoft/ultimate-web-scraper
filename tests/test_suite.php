@@ -397,7 +397,7 @@
 	foreach ($urls as $url)
 	{
 		$pages[$url] = new WebBrowser();
-		$pages[$url]->ProcessAsync($helper, $url, NULL, $url);
+		$pages[$url]->ProcessAsync($helper, $url, NULL, $url, array("debug" => true));
 	}
 
 	// Mix in another file handle type for fun.
