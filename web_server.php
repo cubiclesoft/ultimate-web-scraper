@@ -10,7 +10,7 @@
 	// Compression support requires the CubicleSoft PHP DeflateStream class.
 	class WebServer
 	{
-		private $fp, $ssl, $initclients, $clients, $nextclientid;
+		private $fp, $ssl, $initclients, $clients, $readyclients, $nextclientid;
 		private $defaulttimeout, $defaultclienttimeout, $maxrequests, $defaultclientoptions, $usegzip, $cachedir;
 
 		public function __construct()
@@ -26,6 +26,7 @@
 			$this->ssl = false;
 			$this->initclients = array();
 			$this->clients = array();
+			$this->readyclients = array();
 			$this->nextclientid = 1;
 
 			$this->defaulttimeout = 30;
@@ -130,6 +131,7 @@
 
 				$this->initclients = array();
 				$this->clients = array();
+				$this->readyclients = array();
 				$this->fp = false;
 				$this->ssl = false;
 			}
@@ -454,6 +456,9 @@
 					if ($timeout > 1)  $timeout = 1;
 				}
 			}
+
+			if (count($this->readyclients))  $timeout = 0;
+
 			foreach ($this->clients as $id => $client)
 			{
 				if ($client->httpstate !== false)
@@ -595,6 +600,10 @@
 			// Handle new connections.
 			$this->HandleNewConnections($readfps, $writefps);
 
+			// Handle ready clients.
+			foreach ($this->readyclients as $id => $fp)  $readfps["http_c_" . $id] = $fp;
+			$this->readyclients = array();
+
 			// Handle clients in the read queue.
 			foreach ($readfps as $cid => $fp)
 			{
@@ -684,6 +693,7 @@
 					else if ($client->requestcomplete === false && $client->httpstate["state"] !== "request_line" && $client->httpstate["state"] !== "headers")
 					{
 						// Allows the caller an opportunity to adjust some client options based on inputs on a per-client basis (e.g. recvlimit).
+						$this->readyclients[$id] = $fp;
 						$result["clients"][$id] = $client;
 					}
 				}
@@ -844,7 +854,7 @@
 								$result2["rawrecv"] = "";
 							}
 
-							$client->httpstate = HTTP::InitResponseState($client->fp, $debug, $options, $startts, $timeout, $result2, false, false);
+							$client->httpstate = HTTP::InitResponseState($client->fp, $debug, $options, $startts, $timeout, $result2, false, "", false);
 							$client->mode = "handle_request";
 
 							$client->lastts = microtime(true);
@@ -900,6 +910,7 @@
 			$client = $this->clients[$id];
 
 			unset($this->clients[$id]);
+			unset($this->readyclients[$id]);
 
 			return $client;
 		}
@@ -919,6 +930,7 @@
 				if ($client->fp !== false)  @fclose($client->fp);
 
 				unset($this->clients[$id]);
+				unset($this->readyclients[$id]);
 			}
 		}
 	}
