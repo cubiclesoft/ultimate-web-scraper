@@ -15,7 +15,7 @@
 
 	// The first parameter is the WebSocket server.
 	// The second parameter is the Origin URL.
-	$result = $ws->Connect("ws://localhost:5578/math?apikey=123456789101112", "http://localhost");
+	$result = $ws->Connect("ws://127.0.0.1:5578/math?apikey=123456789101112", "http://localhost");
 	if (!$result["success"])
 	{
 		var_dump($result);
