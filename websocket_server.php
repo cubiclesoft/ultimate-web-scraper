@@ -395,6 +395,7 @@
 
 						unset($this->clients[$id]);
 					}
+					else if ($result2 === 0)  $this->ProcessClientQueuesAndTimeoutState($result, $id, true, false, 1);
 					else
 					{
 						$client->writedata = (string)substr($client->writedata, $result2);
@@ -424,11 +425,11 @@
 			return $result;
 		}
 
-		protected function ProcessClientQueuesAndTimeoutState(&$result, $id, $read, $write)
+		protected function ProcessClientQueuesAndTimeoutState(&$result, $id, $read, $write, $readsize = 65536)
 		{
 			$client = $this->clients[$id];
 
-			$result2 = $client->websocket->ProcessQueuesAndTimeoutState($read, $write);
+			$result2 = $client->websocket->ProcessQueuesAndTimeoutState($read, $write, $readsize);
 			if ($result2["success"])  $result["clients"][$id] = $client;
 			else
 			{
