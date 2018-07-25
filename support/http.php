@@ -580,65 +580,66 @@
 		private static function ProcessState__InternalRead(&$state, $size, $endchar = false)
 		{
 			$y = strlen($state["nextread"]);
-			if ($size <= $y)
-			{
-				if ($endchar === false)  $pos = $size;
-				else
-				{
-					$pos = strpos($state["nextread"], $endchar);
-					if ($pos === false)  $pos = $size;
-					else  $pos++;
-				}
-
-				$data = substr($state["nextread"], 0, $pos);
-				$state["nextread"] = (string)substr($state["nextread"], $pos);
-
-				return $data;
-			}
-
-			if ($endchar !== false)
-			{
-				$pos = strpos($state["nextread"], $endchar);
-				if ($pos !== false)
-				{
-					$data = substr($state["nextread"], 0, $pos + 1);
-					$state["nextread"] = (string)substr($state["nextread"], $pos + 1);
-
-					return $data;
-				}
-			}
-
-			$data = $state["nextread"];
-			$state["nextread"] = "";
-			$size -= $y;
 
 			do
 			{
-				if ($state["debug"])  $data2 = fread($state["fp"], $size);
-				else  $data2 = @fread($state["fp"], $size);
+				if ($size <= $y)
+				{
+					if ($endchar === false)  $pos = $size;
+					else
+					{
+						$pos = strpos($state["nextread"], $endchar);
+						if ($pos === false || $pos > $size)  $pos = $size;
+						else  $pos++;
+					}
 
-				if ($data2 === false || $data2 === "")  return ($data !== "" ? $data : $data2);
+					$data = substr($state["nextread"], 0, $pos);
+					$state["nextread"] = (string)substr($state["nextread"], $pos);
+
+					return $data;
+				}
 
 				if ($endchar !== false)
 				{
-					$pos = strpos($data2, $endchar);
+					$pos = strpos($state["nextread"], $endchar);
 					if ($pos !== false)
 					{
-						$data .= substr($data2, 0, $pos + 1);
-						$state["nextread"] = (string)substr($data2, $pos + 1);
+						$data = substr($state["nextread"], 0, $pos + 1);
+						$state["nextread"] = (string)substr($state["nextread"], $pos + 1);
 
 						return $data;
 					}
 				}
 
-				$data .= $data2;
-				$size -= strlen($data2);
-			} while ($size > 0 && $endchar !== false);
+				if ($state["debug"])  $data2 = fread($state["fp"], $size);
+				else  $data2 = @fread($state["fp"], $size);
+
+				if ($data2 === false || $data2 === "")
+				{
+					if ($state["nextread"] === "")  return $data2;
+
+					if ($state["async"] && $endchar !== false && $data2 === "")  return "";
+
+					$data = $state["nextread"];
+					$state["nextread"] = "";
+
+					return $data;
+				}
+
+				$state["nextread"] .= $data2;
+
+				$y = strlen($state["nextread"]);
+			} while (!$state["async"] || ($size <= $y) || ($endchar !== false && strpos($state["nextread"], $endchar) !== false));
+
+			if ($endchar !== false)  return "";
+
+			$data = $state["nextread"];
+			$state["nextread"] = "";
 
 			return $data;
 		}
 
-		// Reads one or more lines in.
+		// Reads one line.
 		private static function ProcessState__ReadLine(&$state)
 		{
 			while (strpos($state["data"], "\n") === false)
