@@ -1,6 +1,6 @@
 <?php
 	// Test suite.
-	// (C) 2017 CubicleSoft.  All Rights Reserved.
+	// (C) 2018 CubicleSoft.  All Rights Reserved.
 
 	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
 	{
@@ -11,6 +11,7 @@
 
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
+
 	require_once $rootpath . "/../support/web_browser.php";
 	require_once $rootpath . "/../support/simple_html_dom.php";
 	require_once $rootpath . "/../support/tag_filter.php";
