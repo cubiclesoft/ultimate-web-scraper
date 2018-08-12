@@ -1343,8 +1343,15 @@
 						$y = count($rules[$x]);
 						for ($x2 = 0; $x2 < $y; $x2++)
 						{
-							if ($this->nodes[$id2]["type"] === "content")  $backtrack = true;
-							else if (isset($rules[$x][$x2]["namespace"]) && $rules[$x][$x2]["namespace"] !== false && $rules[$x][$x2]["namespace"] !== "*" && (($rules[$x][$x2]["namespace"] === "" && strpos($this->nodes[$id2]["tag"], ":") !== false) || ($rules[$x][$x2]["namespace"] !== "" && strcasecmp(substr($this->nodes[$id2]["tag"], 0, strlen($rules[$x][$x2]["namespace"]) + 1), $rules[$x][$x2]["namespace"] . ":") !== 0)))  $backtrack = true;
+							if ($this->nodes[$id2]["type"] === "content" || $this->nodes[$id2]["type"] === "comment")
+							{
+								// Always backtrack at non-element nodes since the rules are element based.
+								$backtrack = !(isset($rules[$x][$x2]["not"]) && $rules[$x][$x2]["not"]);
+							}
+							else if (isset($rules[$x][$x2]["namespace"]) && $rules[$x][$x2]["namespace"] !== false && $rules[$x][$x2]["namespace"] !== "*" && (($rules[$x][$x2]["namespace"] === "" && strpos($this->nodes[$id2]["tag"], ":") !== false) || ($rules[$x][$x2]["namespace"] !== "" && strcasecmp(substr($this->nodes[$id2]["tag"], 0, strlen($rules[$x][$x2]["namespace"]) + 1), $rules[$x][$x2]["namespace"] . ":") !== 0)))
+							{
+								$backtrack = true;
+							}
 							else
 							{
 								switch ($rules[$x][$x2]["type"])
