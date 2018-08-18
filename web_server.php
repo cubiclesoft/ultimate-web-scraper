@@ -147,6 +147,8 @@
 
 		public function AddClientRecvHeader($id, $name, $val)
 		{
+			if ($name === "" && $val === "")  return;
+
 			$client = $this->clients[$id];
 
 			if (substr($name, -2) !== "[]")  $client->requestvars[$name] = $val;
