@@ -112,6 +112,17 @@ This function sets the cache directory or disables the disk cache.  The default 
 
 When the disk cache is enabled, any key-value pair in $client->requestvars may point at an instance of WebServer_TempFile instead of a string if any given value exceeds the hard limit.
 
+WebServer::GetCacheDir()
+------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  A string containing the current cache directory or a boolean of false if not set.
+
+This function retrieves the caching directory set previously by `SetCacheDir()`.
+
 WebServer::Start($host, $port, $sslopts = false)
 ------------------------------------------------
 
@@ -394,6 +405,20 @@ Parameters:
 Returns:  Nothing.
 
 This protected function handles new incoming connections in Wait().  Can be overridden in a derived class to provide alternate functionality.
+
+WebServer::HandleResponseCompleted($id, $result)
+------------------------------------------------
+
+Access:  protected
+
+Parameters:
+
+* $id - The client ID.
+* $result - A standard array of information.
+
+Returns:  Nothing.
+
+This protected function is called at the end of each sent response.  Can be overridden in a derived class to do things such as gather statistics.
 
 WebServer::DetachClient($id)
 ----------------------------

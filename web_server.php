@@ -80,6 +80,11 @@
 			$this->cachedir = $cachedir;
 		}
 
+		public function GetCacheDir()
+		{
+			return $this->cachedir;
+		}
+
 		// Starts the server on the host and port.
 		// $host is usually 0.0.0.0 or 127.0.0.1 for IPv4 and [::0] or [::1] for IPv6.
 		public function Start($host, $port, $sslopts = false)
@@ -560,6 +565,9 @@
 			$client->currfile = false;
 			$client->files = array();
 
+			// Intended for application storage.
+			$client->appdata = false;
+
 			$this->initclients[$this->nextclientid] = $client;
 
 			$this->nextclientid++;
@@ -583,6 +591,10 @@
 
 				unset($readfps["http_s"]);
 			}
+		}
+
+		protected function HandleResponseCompleted($id, $result)
+		{
 		}
 
 		// Handles new connections, the initial conversation, basic packet management, rate limits, and timeouts.
@@ -761,6 +773,8 @@
 						}
 						else if ($client->keepalive && $client->requests < $this->maxrequests)
 						{
+							$this->HandleResponseCompleted($id, $result2);
+
 							// Reset client for another request.
 							$client->mode = "init_request";
 							$client->readdata = $client->httpstate["nextread"];
@@ -792,6 +806,8 @@
 						}
 						else
 						{
+							$this->HandleResponseCompleted($id, $result2);
+
 							$result["removed"][$id] = array("result" => array("success" => true), "client" => $client);
 
 							$this->RemoveClient($id);
@@ -799,6 +815,8 @@
 					}
 					else if ($result2["errorcode"] !== "no_data")
 					{
+						$this->HandleResponseCompleted($id, $result2);
+
 						$result["removed"][$id] = array("result" => $result2, "client" => $client);
 
 						$this->RemoveClient($id);

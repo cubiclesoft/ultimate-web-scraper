@@ -58,9 +58,6 @@
 		return $result;
 	}
 
-	$tracker = array();
-	$tracker2 = array();
-
 	do
 	{
 		// Implement the stream_select() call directly since multiple server instances are involved.
@@ -79,15 +76,15 @@
 		// Do something with active clients.
 		foreach ($result["clients"] as $id => $client)
 		{
-			if (!isset($tracker[$id]))
+			if ($client->appdata === false)
 			{
 				echo "Client ID " . $id . " connected.\n";
 
-				$tracker[$id] = array("validapikey" => false);
+				$client->appdata = array("validapikey" => false);
 			}
 
 			// Example of checking for an API key.
-			if (!$tracker[$id]["validapikey"] && isset($client->requestvars["apikey"]) && $client->requestvars["apikey"] === "123456789101112")
+			if (!$client->appdata["validapikey"] && isset($client->requestvars["apikey"]) && $client->requestvars["apikey"] === "123456789101112")
 			{
 				echo "Valid API key used.\n";
 
@@ -100,13 +97,13 @@
 					$client->SetHTTPOptions($options);
 				}
 
-				$tracker[$id]["validapikey"] = true;
+				$client->appdata["validapikey"] = true;
 			}
 
 			// Wait until the request is complete before fully processing inputs.
 			if ($client->requestcomplete)
 			{
-				if (!$tracker[$id]["validapikey"])
+				if (!$client->appdata["validapikey"])
 				{
 					echo "Missing API key.\n";
 
@@ -122,10 +119,6 @@
 					if ($id2 !== false)
 					{
 						echo "Client ID " . $id . " upgraded to WebSocket.  WebSocket client ID is " . $id2 . ".\n";
-
-						$tracker2[$id2] = $tracker[$id];
-
-						unset($tracker[$id]);
 					}
 					else
 					{
@@ -156,15 +149,13 @@
 		// Do something with removed clients.
 		foreach ($result["removed"] as $id => $result2)
 		{
-			if (isset($tracker[$id]))
+			if ($result2["client"]->appdata !== false)
 			{
 				echo "Client ID " . $id . " disconnected.\n";
 
 //				echo "Client ID " . $id . " disconnected.  Reason:\n";
 //				var_dump($result2["result"]);
 //				echo "\n";
-
-				unset($tracker[$id]);
 			}
 		}
 
@@ -198,15 +189,13 @@
 		// Do something with removed clients.
 		foreach ($result["removed"] as $id => $result2)
 		{
-			if (isset($tracker2[$id]))
+			if ($result2["client"]->appdata !== false)
 			{
 				echo "WebSocket client ID " . $id . " disconnected.\n";
 
-//				echo "Client ID " . $id . " disconnected.  Reason:\n";
+//				echo "WebSocket client ID " . $id . " disconnected.  Reason:\n";
 //				var_dump($result2["result"]);
 //				echo "\n";
-
-				unset($tracker2[$id]);
 			}
 		}
 	} while (1);
