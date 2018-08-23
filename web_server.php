@@ -653,7 +653,7 @@
 						$client->mode = "init_response";
 						$client->responseheaders = array();
 						$client->responsefinalized = false;
-						$client->responsebodysize = false;
+						$client->responsebodysize = true;
 
 						$client->httpstate["type"] = "request";
 						$client->httpstate["startts"] = microtime(true);
@@ -735,10 +735,10 @@
 					{
 						if ($client->responsefinalized)
 						{
-							$client->AddResponseHeader("Content-Length", (string)strlen($client->writedata), true);
+							if ($client->responsebodysize !== false)  $client->AddResponseHeader("Content-Length", (string)strlen($client->writedata), true);
 							$client->httpstate["bodysize"] = strlen($client->writedata);
 						}
-						else if ($client->responsebodysize !== false)
+						else if ($client->responsebodysize !== true)
 						{
 							$client->AddResponseHeader("Content-Length", (string)$client->responsebodysize, true);
 							$client->httpstate["bodysize"] = $client->responsebodysize;
@@ -1045,6 +1045,8 @@
 					);
 
 					if (!isset($codemap[$code]))  $code = 500;
+
+					if ($this->responsebodysize === true && (($code >= 100 && $code < 200) || $code === 204 || $code === 304))  $this->responsebodysize = false;
 
 					$code = $code . " " . $codemap[$code];
 				}
