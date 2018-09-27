@@ -513,9 +513,10 @@
 					// Sleeping for some amount of time will equalize the rate.
 					// So, solve this for $x:  $size / ($x + $difftime) = $limit
 					$amount = ($size - ($limit * $difftime)) / $limit;
+					$amount += 0.001;
 
 					if ($async)  return microtime(true) + $amount;
-					else  usleep($amount);
+					else  usleep($amount * 1000000);
 				}
 			}
 
@@ -761,8 +762,7 @@
 				$data2 = (string)substr($state[$prefix . "data"], 0, $result);
 				$state[$prefix . "data"] = (string)substr($state[$prefix . "data"], $result);
 
-				$state["result"]["rawsendsize"] += $result;
-				$state["result"]["rawsend" . $prefix . "headersize"] += $result;
+				$state["result"]["rawsend" . $prefix . "size"] += $result;
 
 				if (isset($state["options"]["sendratelimit"]))
 				{
@@ -898,7 +898,8 @@
 							// Switch to the correct state.
 							if ($state["proxyconnect"])
 							{
-								$state["result"]["rawsendproxyheadersize"] = 0;
+								$state["result"]["rawsendproxysize"] = 0;
+								$state["result"]["rawsendproxyheadersize"] = strlen($state["proxydata"]);
 
 								$state["state"] = "proxy_connect_send";
 							}
@@ -926,7 +927,7 @@
 								$options2["debug_callback"] = $state["options"]["debug_callback"];
 								$options2["debug_callback_opts"] = $state["options"]["debug_callback_opts"];
 							}
-							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], $state["close"], $state["nextread"]);
+							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], false, $state["nextread"]);
 
 							$state["state"] = "proxy_connect_response";
 
@@ -1668,12 +1669,13 @@
 			else if ($bodysize > 0 || $body != "" || $options["method"] == "POST")  $data .= "Content-Length: " . $bodysize . "\r\n";
 			$data .= "\r\n";
 			if (isset($options["debug_callback"]) && is_callable($options["debug_callback"]))  call_user_func_array($options["debug_callback"], array("rawheaders", $data, &$options["debug_callback_opts"]));
+			$rawheadersize = strlen($data);
 
 			// Finalize the initial data to be sent.
 			$data .= $body;
 			if ($bodysize !== false)  $bodysize -= strlen($body);
 			$body = "";
-			$result = array("success" => true, "rawsendsize" => 0, "rawsendheadersize" => 0, "rawrecvsize" => 0, "rawrecvheadersize" => 0, "startts" => $startts);
+			$result = array("success" => true, "rawsendsize" => 0, "rawsendheadersize" => $rawheadersize, "rawrecvsize" => 0, "rawrecvheadersize" => 0, "startts" => $startts);
 			$debug = (isset($options["debug"]) && $options["debug"]);
 			if ($debug)
 			{
