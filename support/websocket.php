@@ -297,6 +297,9 @@
 		{
 			if ($this->fp === false || $this->state === self::STATE_CONNECTING)  return array("success" => false, "error" => self::WSTranslate("Connection not established."), "errorcode" => "no_connection");
 
+			$result = $this->ProcessReadData();
+			if (!$result["success"])  return $result;
+
 			$this->FillWriteData();
 
 			$readfp = array($this->fp);
@@ -340,10 +343,16 @@
 			if ($write)
 			{
 				$result = @fwrite($this->fp, $this->writedata);
-				if ($result === false || ($result === "" && feof($this->fp)))  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
+				if ($result === false || ($this->writedata === "" && feof($this->fp)))  return array("success" => false, "error" => self::WSTranslate("ProcessQueuesAndTimeoutState() failed due to fwrite() failure.  Most likely cause:  Connection failure."), "errorcode" => "fwrite_failed");
 
-				$this->rawsendsize += strlen($result);
-				$this->writedata = (string)substr($this->writedata, $result);
+				if ($result)
+				{
+					$this->rawsendsize += $result;
+					$this->writedata = (string)substr($this->writedata, $result);
+
+					$this->lastkeepalive = time();
+					$this->keepalivesent = false;
+				}
 			}
 
 			// Handle timeout state.

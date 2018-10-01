@@ -210,6 +210,17 @@ Returns:  An array of all of the active clients.
 
 This function makes it easy to retrieve the entire list of clients currently connected to the server.  Note that this may include clients that are in the process of connecting and upgrading to the WebSocket protocol.
 
+WebSocketServer::NumClients()
+-----------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  The number of active clients.
+
+This function returns the number clients currently connected to the server.  It's more efficient to call this function than to get a copy of the clients array just to `count()` them.
+
 WebSocketServer::GetClient($id)
 -------------------------------
 

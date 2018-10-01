@@ -281,6 +281,17 @@ Returns:  The internal array of active clients.
 
 This function retrieves the internal array of active clients.  These are the clients that have made it past the initialization states.
 
+WebServer::NumClients()
+-----------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  The number of active clients.
+
+This function returns the number active clients that have made it past the initialization states.  It's more efficient to call this function than to get a copy of the clients array just to `count()` them.
+
 WebServer::GetClient($id)
 -------------------------
 
