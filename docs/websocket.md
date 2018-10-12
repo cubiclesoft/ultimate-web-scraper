@@ -288,9 +288,9 @@ Access:  public
 
 Parameters:
 
-* $timeout - A boolean of false or an integer containing the number of seconds to wait for an event to trigger such as a write operation to complete (default is false).
+* $timeout - A boolean of false or an integer containing the number of seconds to wait for an event to trigger such as a write operation to complete (Default is false).
 
-Returns:  An standard array of information.
+Returns:  A standard array of information.
 
 This function waits until an event occurs such as data arriving, the write end clearing so more data can be sent, or the "nothing has happened for a while, so send a keepalive" timeout.  Then WebSocket::ProcessQueuesAndTimeoutState() is called.  This function is the core of the WebSocket class and should be called frequently (e.g. a while loop).
 
@@ -304,7 +304,7 @@ Parameters:
 * $read - A boolean that indicates that data is available to be read.
 * $write - A boolean that indicates that the connection is ready for more data to be written to it.
 
-Returns:  An standard array of information.
+Returns:  A standard array of information.
 
 This mostly internal function handles post-Wait() queue processing and a keepalive, if necessary, is queued to be sent.  It is declared public so that WebSocketServer can call it to handle the queues and timeout state for an individual client.
 
