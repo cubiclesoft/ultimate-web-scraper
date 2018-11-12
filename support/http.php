@@ -1509,6 +1509,7 @@
 				$proxyprotocol = ($proxysecure && !$async ? (isset($options["proxyprotocol"]) ? strtolower($options["proxyprotocol"]) : "ssl") : "tcp");
 				if (function_exists("stream_get_transports") && !in_array($proxyprotocol, stream_get_transports()))  return array("success" => false, "error" => self::HTTPTranslate("The desired transport proxy protocol '%s' is not installed.", $proxyprotocol), "errorcode" => "proxy_transport_not_installed");
 				$proxyhost = str_replace(" ", "-", self::HeaderValueCleanup($proxyurl["host"]));
+				if ($proxyhost === "")  return array("success" => false, "error" => self::HTTPTranslate("The specified proxy URL is not a URL.  Prefix 'proxyurl' with http:// or https://"), "errorcode" => "invalid_proxy_url");
 				$proxyport = ((int)$proxyurl["port"] ? (int)$proxyurl["port"] : ($proxysecure ? 443 : 80));
 				$proxypath = ($proxyurl["path"] == "" ? "/" : $proxyurl["path"]);
 				$proxyusername = $proxyurl["loginusername"];
