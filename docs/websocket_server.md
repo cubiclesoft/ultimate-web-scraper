@@ -39,6 +39,19 @@ Returns:  Nothing.
 
 This function assigns a new class name of the instance of a class to allocate.  The default is "WebSocket" and the specified class must extend WebSocket or there will be problems later on when clients connect in.
 
+WebSocketServer::SetAllowedOrigins($origins)
+--------------------------------------------
+
+Access:  public
+
+Parameters:
+
+* $origins - A string or an array containing allowed Origin header(s) or a boolean of false to allow any Origin header.
+
+Returns:  Nothing.
+
+This function assigns allowed Origin HTTP header strings.  Useful for validating client connections to the WebSocket server when it is public-facing to the Internet or made available via a proxy.  Can be spoofed but can prevent XSRF attacks in real web browsers that do send valid Origin header strings.
+
 WebSocketServer::SetDefaultCloseMode($mode)
 -------------------------------------------
 

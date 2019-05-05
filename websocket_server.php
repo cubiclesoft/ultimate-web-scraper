@@ -9,7 +9,7 @@
 	// Requires the CubicleSoft PHP WebSocket class.
 	class WebSocketServer
 	{
-		private $fp, $clients, $nextclientid, $websocketclass;
+		private $fp, $clients, $nextclientid, $websocketclass, $origins;
 		private $defaultclosemode, $defaultmaxreadframesize, $defaultmaxreadmessagesize, $defaultkeepalive;
 
 		public function __construct()
@@ -25,6 +25,7 @@
 			$this->clients = array();
 			$this->nextclientid = 1;
 			$this->websocketclass = "WebSocket";
+			$this->origins = false;
 
 			$this->defaultclosemode = WebSocket::CLOSE_IMMEDIATELY;
 			$this->defaultmaxreadframesize = 2000000;
@@ -40,6 +41,15 @@
 		public function SetWebSocketClass($newclass)
 		{
 			if (class_exists($newclass))  $this->websocketclass = $newclass;
+		}
+
+		public function SetAllowedOrigins($origins)
+		{
+			if (is_string($origins))  $origins = array($origins);
+			if (!is_array($origins))  $origins = false;
+			else if (isset($origins[0]))  $origins = array_flip($origins);
+
+			$this->origins = $origins;
 		}
 
 		public function SetDefaultCloseMode($mode)
@@ -108,18 +118,18 @@
 		{
 			$result = "";
 
-			if ($method !== "GET")  $result .= "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
+			if ($method !== "GET")  $result .= "HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n";
 			else if (!isset($client->headers["Host"]) || !isset($client->headers["Connection"]) || stripos($client->headers["Connection"], "upgrade") === false || !isset($client->headers["Upgrade"]) || stripos($client->headers["Upgrade"], "websocket") === false || !isset($client->headers["Sec-Websocket-Key"]))
 			{
-				$result .= "HTTP/1.1 400 Bad Request\r\n\r\n";
+				$result .= "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
 			}
 			else if (!isset($client->headers["Sec-Websocket-Version"]) || $client->headers["Sec-Websocket-Version"] != 13)
 			{
-				$result .= "HTTP/1.1 426 Upgrade Required\r\nSec-WebSocket-Version: 13\r\n\r\n";
+				$result .= "HTTP/1.1 426 Upgrade Required\r\nSec-WebSocket-Version: 13\r\nConnection: close\r\n\r\n";
 			}
-			else if (!isset($client->headers["Origin"]))
+			else if (!isset($client->headers["Origin"]) || ($this->origins !== false && !isset($this->origins[strtolower($client->headers["Origin"])])))
 			{
-				$result .= "HTTP/1.1 403 Forbidden\r\n\r\n";
+				$result .= "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n";
 			}
 
 			return $result;
@@ -145,6 +155,7 @@
 			$client->lastheader = "";
 			$client->websocket = false;
 			$client->fp = $fp;
+			$client->ipaddr = stream_socket_get_name($fp, true);
 
 			// Intended for application storage.
 			$client->appdata = false;
@@ -403,8 +414,17 @@
 					{
 						$client->writedata = (string)substr($client->writedata, $result2);
 
-						// Let the application know about the new client.
-						if ($client->writedata === "")  $result["clients"][$id] = $client;
+						// Let the application know about the new client or close the connection if the WebSocket Upgrade request failed.
+						if ($client->writedata === "")
+						{
+							if ($client->websocket->GetStream() !== false)  $result["clients"][$id] = $client;
+							else
+							{
+								@fclose($fp);
+
+								unset($this->clients[$id]);
+							}
+						}
 					}
 				}
 
