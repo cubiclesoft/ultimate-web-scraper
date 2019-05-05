@@ -270,6 +270,17 @@ Returns:  A boolean of true if there is data ready to be written to the socket, 
 
 This function transforms up to 65KB of data for writing from the write queue into output frames and returns whether or not there is data for writing.  This function can be useful in conjunction with GetStream() when handling multiple streams.
 
+WebSocket::NumWriteMessages()
+-----------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  An integer containing the number of messages in the write queue.
+
+This function returns the number of messages left in the write queue.  Note that this does not count bytes or data that has been transformed for writing, just the size of the write queue array.  This function can be useful when deciding whether or not to push more data into the write queue to conserve RAM.
+
 WebSocket::GetStream()
 ----------------------
 

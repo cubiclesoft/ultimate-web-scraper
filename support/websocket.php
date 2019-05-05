@@ -286,6 +286,11 @@
 			return ($this->writedata !== "");
 		}
 
+		public function NumWriteMessages()
+		{
+			return count($this->writemessages);
+		}
+
 		// Dangerous but allows for stream_select() calls on multiple, separate stream handles.
 		public function GetStream()
 		{
