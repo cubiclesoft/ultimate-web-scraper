@@ -272,7 +272,7 @@
 						{
 							foreach ($state["result"]["headers"]["Set-Cookie"] as $cookie)
 							{
-								$items = explode("; ", $cookie);
+								$items = explode(";", $cookie);
 								$item = trim(array_shift($items));
 								if ($item != "")
 								{
