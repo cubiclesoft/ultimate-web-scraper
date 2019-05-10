@@ -110,9 +110,9 @@
 
 								if ($this->options["keep_comments"])
 								{
-									$content2 = substr($content, $pos + 3, $pos2);
+									$content2 = substr($content, $pos + 3, $pos2 - $pos - 3);
 									if ($this->options["charset"] === "UTF-8" && !self::IsValidUTF8($content2))  $content2 = self::MakeValidUTF8($content2);
-									$content2 = "<!-- " . htmlspecialchars($content2, ENT_COMPAT | ENT_HTML5, $this->options["charset"]) . " -->";
+									$content2 = "<!-- " . trim(htmlspecialchars($content2, ENT_COMPAT | ENT_HTML5, $this->options["charset"])) . " -->";
 
 									// Let a callback handle any necessary changes.
 									if (isset($this->options["content_callback"]) && is_callable($this->options["content_callback"]))  call_user_func_array($this->options["content_callback"], array($this->stack, $result, &$content2, $this->options));
