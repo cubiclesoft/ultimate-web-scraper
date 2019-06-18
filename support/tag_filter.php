@@ -2323,6 +2323,8 @@
 			$result = trim($result);
 			$result = self::CleanupResults($result);
 
+			if (function_exists("gc_mem_caches"))  gc_mem_caches();
+
 			return $result;
 		}
 
