@@ -70,6 +70,18 @@
 			$this->usegzip = (bool)$compress;
 		}
 
+		public static function MakeTempDir($prefix, $perms = 0770)
+		{
+			$dir = sys_get_temp_dir();
+			$dir = str_replace("\\", "/", $dir);
+			if (substr($dir, -1) !== "/")  $dir .= "/";
+			$dir .= $prefix . "_" . getmypid() . "_" . microtime(true);
+			@mkdir($dir, 0770, true);
+			@chmod($dir, $perms);
+
+			return $dir;
+		}
+
 		public function SetCacheDir($cachedir)
 		{
 			if ($cachedir !== false)

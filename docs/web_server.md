@@ -97,6 +97,20 @@ Returns:  Nothing.
 
 This enables/disables gzip response compression.  Note that this requires the DeflateStream class and using compression may cause performance problems since this is a single-threaded server.  The default is disabled.
 
+WebServer::MakeTempDir($prefix, $perms = 0770)
+----------------------------------------------
+
+Access:  public static
+
+Parameters:
+
+* $prefix - A string containing a prefix for the temporary directory.
+* $perms - An integer, usually octal format, containing the permissions to set the created directory to (Default is 0770).
+
+Returns:  A string containing the newly created directory in the temporary path.
+
+This static function creates and returns a temporary directory with specified access permissions based on the prefix, current process ID, and timestamp.
+
 WebServer::SetCacheDir($cachedir)
 ---------------------------------
 
