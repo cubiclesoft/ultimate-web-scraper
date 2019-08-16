@@ -110,7 +110,7 @@ class simple_html_dom_node {
         $this->parent = null;
         $this->children = null;
     }
-    
+
     // dump node's tree
     function dump($show_attr=true) {
         dump_html_tree($this, $show_attr);
@@ -140,7 +140,7 @@ class simple_html_dom_node {
         return null;
     }
 
-    // returns the next sibling of node    
+    // returns the next sibling of node
     function next_sibling() {
         if ($this->parent===null) return null;
         $idx = 0;
@@ -217,7 +217,7 @@ class simple_html_dom_node {
             $ret .= $n->text();
         return $ret;
     }
-    
+
     function xmltext() {
         $ret = $this->innertext();
         $ret = str_ireplace('<![CDATA[', '', $ret);
@@ -313,7 +313,7 @@ class simple_html_dom_node {
                         return;
                     }
                 }
-            } 
+            }
             return;
         }
 
@@ -383,7 +383,7 @@ class simple_html_dom_node {
 
     protected function parse_selector($selector_string) {
         // pattern of CSS selectors, modified from mootools
-        $pattern = "/([\w-:\*]*)(?:\#([\w-]+)|\.([\w-]+))?(?:\[@?(!?[\w-]+)(?:([!*^$]?=)[\"']?(.*?)[\"']?)?\])?([\/, ]+)/is";
+        $pattern = "/([\w\-:\*]*)(?:\#([\w-]+)|\.([\w-]+))?(?:\[@?(!?[\w-]+)(?:([!*^$]?=)[\"']?(.*?)[\"']?)?\])?([\/, ]+)/is";
         preg_match_all($pattern, trim($selector_string).' ', $matches, PREG_SET_ORDER);
         $selectors = array();
         $result = array();
@@ -437,7 +437,7 @@ class simple_html_dom_node {
                 return $this->_[HDOM_INFO_INNER] = $value;
         }
         if (!isset($this->attr[$name])) {
-            $this->_[HDOM_INFO_SPACE][] = array(' ', '', ''); 
+            $this->_[HDOM_INFO_SPACE][] = array(' ', '', '');
             $this->_[HDOM_INFO_QUOTE][] = HDOM_QUOTE_DOUBLE;
         }
         $this->attr[$name] = $value;
@@ -511,8 +511,8 @@ class simple_html_dom {
 
     function __construct($str=null) {
         if ($str) {
-            if (preg_match("/^http:\/\//i",$str) || is_file($str)) 
-                $this->load_file($str); 
+            if (preg_match("/^http:\/\//i",$str) || is_file($str))
+                $this->load_file($str);
             else
                 $this->load($str);
         }
@@ -585,7 +585,7 @@ class simple_html_dom {
         unset($this->doc);
         unset($this->noise);
     }
-    
+
     function dump($show_attr=true) {
         $this->root->dump($show_attr);
     }
@@ -719,7 +719,7 @@ class simple_html_dom {
             return true;
         }
 
-        if (!preg_match("/^[\w-:]+$/", $tag)) {
+        if (!preg_match("/^[\w\-:]+$/", $tag)) {
             $node->_[HDOM_INFO_TEXT] = '<' . $tag . $this->copy_until('<>');
             if ($this->char==='<') {
                 $this->link_nodes($node, false);
