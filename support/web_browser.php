@@ -21,6 +21,7 @@
 			$this->data = array(
 				"allowedprotocols" => array("http" => true, "https" => true),
 				"allowedredirprotocols" => array("http" => true, "https" => true),
+				"hostauths" => array(),
 				"cookies" => array(),
 				"referer" => "",
 				"autoreferer" => true,
@@ -130,6 +131,9 @@
 						$dothost = strtolower($dothost);
 						if (substr($dothost, 0, 1) != ".")  $dothost = "." . $dothost;
 						$state["dothost"] = $dothost;
+
+						// Append Authorization header.
+						if (isset($this->data["hostauths"][$host]) && !isset($headers["Authorization"]))  $headers["Authorization"] = $this->data["hostauths"][$host];
 
 						// Append cookies and delete old, invalid cookies.
 						$secure = ($state["urlinfo"]["scheme"] == "https");
@@ -261,6 +265,15 @@
 							{
 								unset($state["tempoptions"]["headers"]["Host"]);
 								unset($state["httpopts"]["headers"]["Host"]);
+
+								// Adjust the Authorization header.
+								if (isset($state["tempoptions"]["headers"]["Authorization"]))  $this->data["hostauths"][$state["urlinfo"]["host"]] = $state["tempoptions"]["headers"]["Authorization"];
+								else if (isset($state["httpopts"]["headers"]["Authorization"]))  $this->data["hostauths"][$state["urlinfo"]["host"]] = $state["httpopts"]["headers"]["Authorization"];
+
+								unset($state["httpopts"]["headers"]["Authorization"]);
+
+								if (isset($this->data["hostauths"][$urlinfo2["host"]]))  $state["tempoptions"]["headers"]["Authorization"] = $this->data["hostauths"][$urlinfo2["host"]];
+								else  unset($state["tempoptions"]["headers"]["Authorization"]);
 							}
 
 							$state["urlinfo"] = $urlinfo2;

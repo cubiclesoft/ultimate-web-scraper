@@ -149,6 +149,7 @@ This function modifies the internal structures of a WebBrowser instance by mergi
 
 * allowedprotocols - An array containing key-value pairs where the key is a string containing a protocol of "http" or "https" and the value is a boolean that specifies whether or not to allow the protocol (Default is array("http" => true, "https" => true)).
 * allowedredirprotocols - An array containing key-value pairs where the key is a string containing a protocol of "http" or "https" and the value is a boolean that specifies whether or not to allow the protocol to be used in a redirect (Default is array("http" => true, "https" => true)).
+* hostauths - An array containing key-value pairs of Host to Authorization mappings (Default is array()).  Allows for redirects to traverse multiple hosts.
 * cookies - An array containing cookies (Default is array()).  This is intended to be for internal use only.
 * referer - A string containing the HTTP referer to use (Default is "").
 * autoreferer - A boolean that specifies whether or not to automatically change the 'referer' option (Default is true).
