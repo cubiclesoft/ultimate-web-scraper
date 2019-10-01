@@ -507,7 +507,8 @@ Example:
 
 Working with such APIs is best done by building a SDK.  Here are several SDKs and their relevant API documentation that might be useful:
 
-* [DigitalOcean SDK](https://github.com/cubiclesoft/digitalocean) and [API documentation](https://developers.digitalocean.com/documentation/)
+* [Twilio SDK](https://github.com/cubiclesoft/php-twilio-sdk/) and [API documentation](https://www.twilio.com/docs)
+* [DigitalOcean SDK](https://github.com/cubiclesoft/digitalocean/) and [API documentation](https://developers.digitalocean.com/documentation/)
 * [OpenDrive SDK](https://github.com/cubiclesoft/cloud-backup/blob/master/support/sdk_opendrive.php) and [API documentation](https://www.opendrive.com/api)
 
 The above SDKs utilize this toolkit.
