@@ -189,7 +189,7 @@
 			$relative = (is_array($relativeurl) ? $relativeurl : self::ExtractURL($relativeurl));
 			$base = (is_array($baseurl) ? $baseurl : self::ExtractURL($baseurl));
 
-			if ($relative["host"] != "")
+			if ($relative["host"] != "" || ($relative["scheme"] != "" && $relative["scheme"] != $base["scheme"]))
 			{
 				if ($relative["scheme"] == "")  $relative["scheme"] = $base["scheme"];
 
