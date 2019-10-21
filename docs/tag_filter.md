@@ -695,6 +695,33 @@ Example usage:
 ?>
 ```
 
+TagFilterNodes::SetText($id, $val)
+----------------------------------
+
+Access:  public
+
+Parameters:
+
+* $id - An integer containing a node ID.
+* $val - A string containing the text to set.
+
+Returns:  Nothing.
+
+This function only works with content and comment nodes and sets the text of the node.
+
+TagFilterNodes::GetText($id)
+----------------------------
+
+Access:  public
+
+Parameters:
+
+* $id - An integer containing a node ID.
+
+Returns:  A string containing the node's text on success, a boolean of false otherwise.
+
+This function only works with content and comment nodes and returns the text.
+
 TagFilterNodes::Move($src, $newpid, $newpos)
 --------------------------------------------
 
@@ -1427,6 +1454,19 @@ Example usage:
 	}
 ?>
 ```
+
+TagFilterNode::Text($val = null)
+--------------------------------
+
+Access:  public
+
+Parameters:
+
+* $val - An optional string to set the node's text to.
+
+Returns:  When `$val` is not null, nothing is returned.  When `$val` is null, a string containing the node's text on success, a boolean of false otherwise.
+
+This function either sets or gets the the text of a content or comment node.
 
 TagFilterNode::AddClass($name, $attr = "class")
 -----------------------------------------------
