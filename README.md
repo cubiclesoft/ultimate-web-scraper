@@ -25,6 +25,7 @@ Features
 * Includes the legacy Simple HTML DOM library to parse and extract desired content from HTML.  NOTE:  Simple HTML DOM is only included for legacy reasons.  TagFilter is much faster and more accurate as well as more powerful and flexible.
 * An unncessarily [feature-laden web server class](https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/web_server.md) with optional SSL/TLS support.  Run a web server written in pure PHP.  Why?  Because you can, that's why.
 * A decent [WebSocket server class](https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/websocket_server.md) is included too.
+* Can be used to [download entire websites for offline use](#offline-downloading).
 * Has a liberal open source license.  MIT or LGPL, your choice.
 * Designed for relatively painless integration into your project.
 * Sits on GitHub for all of that pull request and issue tracker goodness to easily submit changes and ideas respectively.
@@ -603,6 +604,23 @@ Example:
 One other useful tip is to attempt to use wildcard SQL characters or text patterns to extract more data than the website operator likely intended.  If a search box requires some field to be filled in for a search to be accepted, try a single '%' to see if the server is accepting wildcard LIKE queries.  If not, then maybe walking through the set of possible alphanumeric values will work (e.g. "a", "b", "c", "d") and then being careful to exclude duplicated data (e.g. "XYZ, Inc." would show up in six different search result sets).
 
 Another useful tip is to be aware of URLs for detail pages.  For example, when viewing details about an item from a search and the item has "id=2018000001" in the URL for that page and then another item has "id=2017003449", then there may be a predictable pattern of year + sequence within that year as part of the ID for any given item.  Searching may not even be necessary as it may be possible to generate the URL dynamically (e.g. "id=2018000001", "id=2018000002", "id=2018000003") if the goal is to copy all records.
+
+Offline Downloading
+-------------------
+
+Included with Ultimate Web Scraper Toolkit is an example script to download a website starting at a specified URL.  The script is located at [offline_download_example.php](offline_download_example.php).  The script demonstrates bulk concurrent downloading and processing of HTML, CSS, images, Javascript, and other files almost like a web browser would do.
+
+Example usage:
+
+```
+php offline_download_example.php offline-test https://barebonescms.com/ 3
+```
+
+That will download content up to three links deep to the local computer system starting at the root URL of barebonescms.com.  All valid URLs to barebonescms.com are transformed into local disk references.  CDNs for images and Javascript are transformed into subdirectories.  The script also attempts to maintain the relative URL structure of the original website wherever possible.
+
+The script is only an example of what a website downloader might look like since it lacks features that a better tool might have (e.g. the ability to exclude certain URL paths).  It's a great starting point though for building something more complete and/or a custom solution for a specific purpose.
+
+There are some limitations.  For example, any files loaded via Javascript won't necessarily be retrieved.  See the Limitations section below for additional information.
 
 Limitations
 -----------
