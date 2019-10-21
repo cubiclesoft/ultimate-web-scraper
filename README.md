@@ -608,7 +608,7 @@ Another useful tip is to be aware of URLs for detail pages.  For example, when v
 Offline Downloading
 -------------------
 
-Included with Ultimate Web Scraper Toolkit is an example script to download a website starting at a specified URL.  The script is located at [offline_download_example.php](offline_download_example.php).  The script demonstrates bulk concurrent downloading and processing of HTML, CSS, images, Javascript, and other files almost like a web browser would do.
+Included with Ultimate Web Scraper Toolkit is an [example script](offline_download_example.php) to download a website starting at a specified URL.  The script demonstrates bulk concurrent downloading and processing of HTML, CSS, images, Javascript, and other files almost like a web browser would do.
 
 Example usage:
 
