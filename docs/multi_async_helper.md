@@ -55,8 +55,8 @@ Example usage:
 			unset($pages[$key]);
 		}
 
-		// Break out of the loop when nothing is left.
-		if ($result["numleft"] < 1)  break;
+		// Break out of the loop when there is nothing left to do.
+		if (!$helper->NumObjects())  break;
 
 		$result = $helper->Wait();
 	}
@@ -93,6 +93,17 @@ Parameters:
 Returns:  Nothing.
 
 This function will place the specified object in the internal queue and associate it with the specified key.  If this function is called in the future with an identical key, any existing object with the same key still in the class will be removed and the new object will be placed in the queue.
+
+MultiAsyncHelper::NumObjects()
+------------------------------
+
+Access:  public
+
+Parameters:  None.
+
+Returns:  The number of objects in the helper.
+
+This function returns the number queued and active objects currently managed by this class instance.
 
 MultiAsyncHelper::GetObject($key)
 ---------------------------------
