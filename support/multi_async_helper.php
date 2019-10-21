@@ -31,6 +31,11 @@
 			}
 		}
 
+		public function NumObjects()
+		{
+			return count($this->queuedobjs) + count($this->objs);
+		}
+
 		public function GetObject($key)
 		{
 			if (isset($this->queuedobjs[$key]))  $result = $this->queuedobjs[$key]["obj"];
@@ -197,8 +202,9 @@
 				$keep = false;
 				call_user_func_array($info["callback"], array("init", &$keep, $key, &$info["obj"]));
 
+				$this->objs[$key] = $info;
+
 				if (!$keep)  $result2["removed"][$key] = $this->Remove($key);
-				else  $this->objs[$key] = $info;
 			}
 
 			// Walk the objects looking for read and write handles.
@@ -245,7 +251,7 @@
 
 							if (isset($this->objs[$key]))
 							{
-								call_user_func_array($info["callback"], array("read", &$fp, $key, &$this->objs[$key]["obj"]));
+								call_user_func_array($this->objs[$key]["callback"], array("read", &$fp, $key, &$this->objs[$key]["obj"]));
 
 								$readfps3[$key] = $fp;
 							}
@@ -269,7 +275,7 @@
 
 							if (isset($this->objs[$key]))
 							{
-								call_user_func_array($info["callback"], array("write", &$fp, $key, &$this->objs[$key]["obj"]));
+								call_user_func_array($this->objs[$key]["callback"], array("write", &$fp, $key, &$this->objs[$key]["obj"]));
 
 								$readfps3[$key] = $fp;
 							}
