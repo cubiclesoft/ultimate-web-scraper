@@ -13,6 +13,8 @@ require_once "./support/multi_async_helper.php";
 @ini_set("memory_limit", "-1");
 class OfflineDownload
 {
+    protected $ignored_urls =[];
+
     protected $linkdepth;
     protected $destpath;
     protected $initurl;
@@ -57,11 +59,17 @@ class OfflineDownload
      * @var array
      */
     protected $ops;
+    /**
+     * @var bool
+     */
+    protected $allow_x_domain;
 
 
-    public function __construct($folder_path, $url, $depth=false)
+    public function __construct($folder_path, $url, $depth=false,bool $allow_cross_domain=false,$ignored_urls=[])
     {
-       $this->linkdepth= ($depth!==false)?(int)$depth:$depth;
+        $this->ignored_urls= $ignored_urls;
+        $this->allow_x_domain = $allow_cross_domain;
+        $this->linkdepth= ($depth!==false)?(int)$depth:$depth;
 
         @mkdir($folder_path, 0770, true);
         $this->destpath = realpath($folder_path);
@@ -397,7 +405,7 @@ class OfflineDownload
     }
 
     // Attempt to create a roughly-equivalent structure to the URL on the local filesystem for static serving later.
-   public function SetReverseManifestPath($key)
+    public function SetReverseManifestPath($key)
     {
 
         $url2 = HTTP::ExtractURL($key);
@@ -449,8 +457,16 @@ class OfflineDownload
 //var_dump($opsdata[$key]["path"]);
 //var_dump($manifestrev);
     }
-  public  function MapManifestResourceItem($parenturl, $url)
+    public  function MapManifestResourceItem($parenturl, $url)
     {
+
+        //ignore some urls
+        $temp = strtolower($url);
+        foreach ($this->ignored_urls as $ignored_url){
+            if(strpos($temp,strtolower($ignored_url))!==false){
+                return $url;
+            }
+        }
 
         // Strip scheme if HTTP/HTTPS.  Otherwise, just return the URL as-is (e.g. mailto: and data: URIs).
         if (strtolower(substr($url, 0, 7)) === "http://")  $url2 = substr($url, 5);
@@ -483,7 +499,7 @@ class OfflineDownload
     }
 
     // Generates a leaf node and prevents the parent from completing until the document URLs are updated.
-   public function PrepareManifestResourceItem($parenturl, $forcedext, $url)
+    public function PrepareManifestResourceItem($parenturl, $forcedext, $url)
     {
 
         $pos = strpos($url, "#");
@@ -537,7 +553,7 @@ class OfflineDownload
     }
 
     // Locate additional files to import in CSS.  Doesn't implement a state engine.
-   public function ProcessCSS($css, $parenturl, $baseurl)
+    public function ProcessCSS($css, $parenturl, $baseurl)
     {
         $result = $css;
 
@@ -614,6 +630,7 @@ class OfflineDownload
     {
 
         if ($this->opsdata[$key]["httpcode"] >= 400)  return;
+
         // Process HTML, altering URLs as necessary.
         if ($this->ops[$key]["type"] === "node" && $this->ops[$key]["ext"] === ".html")
         {
@@ -662,6 +679,7 @@ class OfflineDownload
 
                 $row->href = $this->PrepareManifestResourceItem($key, ((isset($row->rel) && strtolower($row->rel) === "stylesheet") || (isset($row->type) && strtolower($row->type) === "text/css") ? ".css" : false), $url);
             }
+
 
             // Handle external Javascript.
             $rows = $root->Find('script[src]');
@@ -720,18 +738,22 @@ class OfflineDownload
                     $url2 = $this->MapManifestResourceItem($key, $url);
                     if ($url2 !== false)
                     {
-                        if ($row->Tag() === "iframe")  $row->src = $url2 . $fragment;
-                        else  $row->href =  $fragment?:$url2;
+                        if ($row->Tag() === "iframe")  $row->src =($pos)? $url2 . $fragment:$fragment;
+                        else  $row->href =  ($pos)? $url2 . $fragment:$fragment;
 //						else  $row->href = $url2 . $fragment;
                     }
                     else
                     {
-                        if ($row->Tag() === "iframe")  $row->src = $url . $fragment;
-                        else  $row->href = $url . $fragment;
+                        if ($row->Tag() === "iframe")  $row->src = ($pos)? $url . $fragment:$fragment;
+                        else  $row->href = ($pos)? $url . $fragment:$fragment;
 
-                        if ($this->linkdepth === false || $this->ops[$key]["depth"] < $this->linkdepth)
+                        if((!$this->allow_x_domain) && strpos(strtolower($url),str_replace(['https://','http://'],'',strtolower($this->initurl)))===false){
+                            echo "\nwe skipped $url  => $this->initurl  \n";
+
+                        }
+                        elseif ($this->linkdepth === false || $this->ops[$key]["depth"] < $this->linkdepth)
                         {
-                            echo "\nanother url $url \n";
+
                             // Queue up another node.
                             $key2 = $url;
 
@@ -784,7 +806,7 @@ class OfflineDownload
         }
     }
 
-     // Provides some basic feedback prior to retrieving each URL.
+    // Provides some basic feedback prior to retrieving each URL.
     public function DisplayURL(&$state)
     {
 
