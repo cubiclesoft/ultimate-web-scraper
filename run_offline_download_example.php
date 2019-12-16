@@ -61,20 +61,7 @@ if( php_sapi_name()=="cli") {
     $allow_cross_domain=$_REQUEST['allow_cross_domain']??false;
     $ignored_urls =$_REQUEST['ignored_urls']??[];
 }
-//ob_end_clean();
-//header("Connection: close\r\n");
-//header("Content-Encoding: none\r\n");
-////ignore_user_abort(true); // optional
-//ob_start();
-//echo ('Text user will see');
-//$size = ob_get_length();
-//header("Content-Length: $size");
-//ob_end_flush();     // Strange behaviour, will not work
-//flush();            // Unless both are called !
-//ob_end_clean();
 
-//do processing here
 
-//$ge = new OfflineDownload("test_s","https://demo.dashboardpack.com/architectui-html-pro/index.html",3,false,["placeholdit.imgix.net"]);
 $ge = new OfflineDownload($folder_path,$url,$depth,$allow_cross_domain,$allow_cross_domain);
 $ge->run();
