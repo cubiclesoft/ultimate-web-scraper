@@ -57,6 +57,10 @@ class OfflineDownload
      */
     protected $allow_x_domain;
     /**
+     * @var string
+     */
+    protected $log_file;
+    /**
      * @var array
      */
     private $initurl2;
@@ -68,12 +72,8 @@ class OfflineDownload
      * @var string
      */
     private $url_dir;
-    /**
-     * @var string
-     */
-    protected $log_file;
 
-    public function __construct($folder_path, $url, $depth = false,  $allow_cross_domain = false, $ignored_urls = [])
+    public function __construct($folder_path, $url, $depth = false, $allow_cross_domain = false, $ignored_urls = [])
     {
         $this->ignored_urls = $ignored_urls;
         $this->allow_x_domain = $allow_cross_domain;
@@ -82,8 +82,7 @@ class OfflineDownload
         @mkdir($folder_path, 0777, true);
 //        @mkdir($folder_path, 0770, true);
         $this->destpath = realpath($folder_path);
-        $this->log_file = $this->destpath.DIRECTORY_SEPARATOR."output.log";
-
+        $this->log_file = $this->destpath . DIRECTORY_SEPARATOR . "output.log";
 
 
         // Alter input URL to remove potential attack vectors.
@@ -123,8 +122,8 @@ class OfflineDownload
 
         $this->ops = @json_decode(file_get_contents($this->opsfile), true);
 
-        $this->url_dir=strtolower(HTTP::ConvertRelativeToAbsoluteURL($this->initurl, "./"));
-        $this->url_dir=str_replace(['https://', 'http://'], '', $this->url_dir);
+        $this->url_dir = strtolower(HTTP::ConvertRelativeToAbsoluteURL($this->initurl, "./"));
+        $this->url_dir = str_replace(['https://', 'http://'], '', $this->url_dir);
 
 
     }
@@ -132,13 +131,15 @@ class OfflineDownload
     public function run()
     {
 
+
         //todo find better way to do this
         //output current progress or background process in case
         // connection was lost before script could finish execution
-        if(file_exists($this->log_file) && php_sapi_name()!=="cli"){
-            echo file_get_contents($this->log_file);
+        if (file_exists($this->log_file) && php_sapi_name() !== "cli") {
+            echo str_replace([PHP_EOL,"\n"],["<br>"],file_get_contents($this->log_file));
             die();
         }
+        $start = time();
 
         foreach ($this->manifest as $key => $val) {
             $vals = explode("/", $val);
@@ -209,7 +210,7 @@ class OfflineDownload
                     $this->ops[$key]["retries"]--;
                     if ($this->ops[$key]["retries"]) $this->ops[$key]["web"]->ProcessAsync($this->helper, $key, NULL, $key, $info["tempoptions"]);
 
-                    $this->sm( "Error retrieving URL (" . $key . ").  " . ($this->ops[$key]["retries"] > 0 ? "Retrying in a moment.  " : "") . $info["result"]["error"] . " (" . $info["result"]["errorcode"] . ")\n");
+                    $this->sm("Error retrieving URL (" . $key . ").  " . ($this->ops[$key]["retries"] > 0 ? "Retrying in a moment.  " : "") . $info["result"]["error"] . " (" . $info["result"]["errorcode"] . ")\n");
                 } else {
 
                     $this->sm("[" . number_format(count($this->ops), 0) . " ops] Processing '" . $key . "'.\n");
@@ -260,9 +261,9 @@ class OfflineDownload
                     while (count($process)) {
                         $key2 = array_shift($process);
 
-                        if ($this->opsdata[$key2]["httpcode"] >= 400) $this->sm( "[" . number_format(count($this->ops), 0) . " ops] Finalizing '" . $key2 . "'.\n");
+                        if ($this->opsdata[$key2]["httpcode"] >= 400) $this->sm("[" . number_format(count($this->ops), 0) . " ops] Finalizing '" . $key2 . "'.\n");
                         else {
-                            $this->sm( "[" . number_format(count($this->ops), 0) . " ops] Saving '" . $key2 . "' to '" . $this->destpath . $this->opsdata[$key2]["path"] . "'.\n");
+                            $this->sm("[" . number_format(count($this->ops), 0) . " ops] Saving '" . $key2 . "' to '" . $this->destpath . $this->opsdata[$key2]["path"] . "'.\n");
 
                             $this->manifest[str_replace(array("http://", "https://"), "//", $key2)] = $this->opsdata[$key2]["path"];
 
@@ -302,17 +303,18 @@ class OfflineDownload
 
         // Final message.
         if (count($this->ops)) {
-            $this->sm( "Unable to process the following URLs:\n\n");
+            $this->sm("Unable to process the following URLs:\n\n");
 
             foreach ($this->ops as $url => $info) {
-                $this->sm( "  " . $url . "\n");
+                $this->sm("  " . $url . "\n");
             }
 
-            $this->sm( "\n");
-            $this->sm( "Done, with errors.\n");
+            $this->sm("\n");
+            $this->sm("Done, with errors.\n");
         } else {
-            $this->sm( "Done.\n");
+            $this->sm("Done.\n");
         }
+        $this->sm("finished in ".(time()-$start)."secs\n");
     }
 
     protected function SaveQueues()
@@ -333,6 +335,19 @@ class OfflineDownload
     }
 
     // Calculates the static file extension based on the result of a HTTP request.
+
+    public function sm($msg)
+    {
+        echo $msg;
+//        store output progress to fetched if script is run again with same parameter
+        if (php_sapi_name() !== "cli") {
+            file_put_contents($this->log_file, $msg, FILE_APPEND);
+
+        }
+    }
+
+    // Attempt to create a roughly-equivalent structure to the URL on the local filesystem for static serving later.
+
     public function GetResultFileExtension(&$result)
     {
         $mimeextmap = array(
@@ -399,7 +414,6 @@ class OfflineDownload
         return $fileext;
     }
 
-    // Attempt to create a roughly-equivalent structure to the URL on the local filesystem for static serving later.
     public function SetReverseManifestPath($key)
     {
 
@@ -452,6 +466,8 @@ class OfflineDownload
 //var_dump($opsdata[$key]["path"]);
 //var_dump($manifestrev);
     }
+
+    // Generates a leaf node and prevents the parent from completing until the document URLs are updated.
 
     public function ProcessContent($key, $final)
     {
@@ -548,12 +564,12 @@ class OfflineDownload
 
                     $url2 = $this->MapManifestResourceItem($key, $url);
                     if ($url2 !== false) {
-                        if ($row->Tag() === "iframe") $row->src = ($pos!==0) ? $url2 . $fragment : $fragment;
-                        else  $row->href = ($pos!==0) ? $url2 . $fragment : $fragment;
+                        if ($row->Tag() === "iframe") $row->src =  $url2 . $fragment;
+                        else  $row->href = ($key === $url) ? $fragment : $url2 . $fragment;
 //						else  $row->href = $url2 . $fragment;
                     } else {
-                        if ($row->Tag() === "iframe") $row->src = ($pos!==0) ? $url . $fragment : $fragment;
-                        else  $row->href = ($pos!==0) ? $url . $fragment : $fragment;
+                        if ($row->Tag() === "iframe") $row->src =$url . $fragment;
+                        else  $row->href = ($key === $url) ? $fragment : $url . $fragment;
 
                         if ($this->linkdepth === false || $this->ops[$key]["depth"] < $this->linkdepth) {
 
@@ -605,7 +621,7 @@ class OfflineDownload
         }
     }
 
-    // Generates a leaf node and prevents the parent from completing until the document URLs are updated.
+    // Locate additional files to import in CSS.  Doesn't implement a state engine.
 
     public function PrepareManifestResourceItem($parenturl, $forcedext, $url)
     {
@@ -656,8 +672,6 @@ class OfflineDownload
         return $url;
     }
 
-    // Locate additional files to import in CSS.  Doesn't implement a state engine.
-
     public function MapManifestResourceItem($parenturl, $url)
     {
 
@@ -702,6 +716,8 @@ class OfflineDownload
 
         return false;
     }
+
+    // Provides some basic feedback prior to retrieving each URL.
 
     public function ProcessCSS($css, $parenturl, $baseurl)
     {
@@ -768,8 +784,6 @@ class OfflineDownload
         return $result;
     }
 
-    // Provides some basic feedback prior to retrieving each URL.
-
     public function DisplayURL(&$state)
     {
 
@@ -777,16 +791,6 @@ class OfflineDownload
         $this->sm("[" . number_format(count($this->ops), 0) . " ops] Retrieving '" . $state["url"] . "'...\n");
 
         return true;
-    }
-
-    public function sm($msg)
-    {
-        echo $msg;
-//        store output progress to fetched if script is run again with same parameter
-        if(php_sapi_name()!=="cli"){
-            file_put_contents($this->log_file,$msg,FILE_APPEND);
-
-        }
     }
 }
 
