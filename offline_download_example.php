@@ -451,7 +451,12 @@
 			$rows = $root->Find('a[href],iframe[src]');
 			foreach ($rows as $row)
 			{
-				$url = HTTP::ConvertRelativeToAbsoluteURL($urlinfo, ($row->Tag() === "iframe" ? $row->src : $row->href));
+				$url = ($row->Tag() === "iframe" ? $row->src : $row->href);
+
+				// Skip altering fragment-only URIs.  The browser knows how to natively handle these.
+				if (substr($url, 0, 1) === "#")  continue;
+
+				$url = HTTP::ConvertRelativeToAbsoluteURL($urlinfo, $url);
 				$url2 = HTTP::ExtractURL($url);
 
 				// Only follow links on the same domain.
