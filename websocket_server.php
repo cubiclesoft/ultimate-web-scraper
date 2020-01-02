@@ -9,8 +9,8 @@
 	// Requires the CubicleSoft PHP WebSocket class.
 	class WebSocketServer
 	{
-		private $fp, $clients, $nextclientid, $websocketclass, $origins;
-		private $defaultclosemode, $defaultmaxreadframesize, $defaultmaxreadmessagesize, $defaultkeepalive;
+		protected $fp, $clients, $nextclientid, $websocketclass, $origins;
+		protected $defaultclosemode, $defaultmaxreadframesize, $defaultmaxreadmessagesize, $defaultkeepalive, $lasttimeoutcheck;
 
 		public function __construct()
 		{
@@ -31,6 +31,7 @@
 			$this->defaultmaxreadframesize = 2000000;
 			$this->defaultmaxreadmessagesize = 10000000;
 			$this->defaultkeepalive = 30;
+			$this->lasttimeoutcheck = time();
 		}
 
 		public function __destruct()
@@ -194,6 +195,8 @@
 				// Set the socket in the WebSocket class.
 				$client->websocket->Connect("", "", array("connected_fp" => $client->fp));
 			}
+
+			$this->UpdateClientState($client->id);
 		}
 
 		public function UpdateStreamsAndTimeout($prefix, &$timeout, &$readfps, &$writefps)
@@ -284,8 +287,20 @@
 			$result2 = self::FixedStreamSelect($readfps, $writefps, $exceptfps, $timeout);
 			if ($result2 === false)  return array("success" => false, "error" => self::WSTranslate("Wait() failed due to stream_select() failure.  Most likely cause:  Connection failure."), "errorcode" => "stream_select_failed");
 
+			// Return handles that were being waited on.
+			$result["readfps"] = $readfps;
+			$result["writefps"] = $writefps;
+			$result["exceptfps"] = $exceptfps;
+
+			$this->ProcessWaitResult($result);
+
+			return $result;
+		}
+
+		protected function ProcessWaitResult(&$result)
+		{
 			// Handle new connections.
-			if (isset($readfps["ws_s"]))
+			if (isset($result["readfps"]["ws_s"]))
 			{
 				while (($fp = @stream_socket_accept($this->fp, 0)) !== false)
 				{
@@ -295,11 +310,11 @@
 					$this->InitNewClient($fp);
 				}
 
-				unset($readfps["ws_s"]);
+				unset($result["readfps"]["ws_s"]);
 			}
 
 			// Handle clients in the read queue.
-			foreach ($readfps as $cid => $fp)
+			foreach ($result["readfps"] as $cid => $fp)
 			{
 				if (!is_string($cid) || strlen($cid) < 6 || substr($cid, 0, 5) !== "ws_c_")  continue;
 
@@ -311,10 +326,10 @@
 
 				if ($client->websocket !== false)
 				{
-					$this->ProcessClientQueuesAndTimeoutState($result, $id, true, isset($writefps[$cid]));
+					$this->ProcessClientQueuesAndTimeoutState($result, $id, true, isset($result["writefps"][$cid]));
 
 					// Remove active WebSocket clients from the write queue.
-					unset($writefps[$cid]);
+					unset($result["writefps"][$cid]);
 				}
 				else
 				{
@@ -385,11 +400,11 @@
 					}
 				}
 
-				unset($readfps[$cid]);
+				unset($result["readfps"][$cid]);
 			}
 
 			// Handle remaining clients in the write queue.
-			foreach ($writefps as $cid => $fp)
+			foreach ($result["writefps"] as $cid => $fp)
 			{
 				if (!is_string($cid) || strlen($cid) < 6 || substr($cid, 0, 5) !== "ws_c_")  continue;
 
@@ -428,24 +443,23 @@
 					}
 				}
 
-				unset($writefps[$cid]);
+				unset($result["writefps"][$cid]);
 			}
 
 			// Handle client timeouts.
-			foreach ($this->clients as $id => $client)
+			$ts = time();
+			if ($this->lasttimeoutcheck <= $ts - 5)
 			{
-				if (!isset($result["clients"][$id]) && $client->writedata === "" && $client->websocket !== false)
+				foreach ($this->clients as $id => $client)
 				{
-					$this->ProcessClientQueuesAndTimeoutState($result, $id, false, false);
+					if (!isset($result["clients"][$id]) && $client->writedata === "" && $client->websocket !== false)
+					{
+						$this->ProcessClientQueuesAndTimeoutState($result, $id, false, false);
+					}
 				}
+
+				$this->lasttimeoutcheck = $ts;
 			}
-
-			// Return any extra handles that were being waited on.
-			$result["readfps"] = $readfps;
-			$result["writefps"] = $writefps;
-			$result["exceptfps"] = $exceptfps;
-
-			return $result;
 		}
 
 		protected function ProcessClientQueuesAndTimeoutState(&$result, $id, $read, $write, $readsize = 65536)
@@ -470,6 +484,10 @@
 		public function NumClients()
 		{
 			return count($this->clients);
+		}
+
+		public function UpdateClientState($id)
+		{
 		}
 
 		public function GetClient($id)

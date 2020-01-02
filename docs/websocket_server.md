@@ -196,6 +196,19 @@ This function is the core of the WebSocketServer class and should be called freq
 
 This function returns an array of clients that were responsive during the call and may have things to do such as Read() incoming messages.  It will also return clients that are no longer connected so that the application can have a chance to clean up resources associated with the client.
 
+WebSocketServer::ProcessWaitResult(&$result)
+--------------------------------------------
+
+Access:  protected
+
+Parameters:
+
+* $result - An array of standard information containing file handles.
+
+Returns:  Nothing.
+
+This function processes the result of the Wait() function.  Derived classes may call this function (e.g. LibEvWebSocketServer).
+
 WebSocketServer::ProcessClientQueuesAndTimeoutState(&$result, $id, $read, $write)
 ---------------------------------------------------------------------------------
 
@@ -233,6 +246,19 @@ Parameters:  None.
 Returns:  The number of active clients.
 
 This function returns the number clients currently connected to the server.  It's more efficient to call this function than to get a copy of the clients array just to `count()` them.
+
+WebSocketServer::UpdateClientState($id)
+---------------------------------------
+
+Access:  public
+
+Parameters:
+
+* $id - An integer containing the ID of the client to update the internal state for.
+
+Returns:  Nothing.
+
+This function does nothing by default.  Derived classes may maintain internal technical state for optimized performance later on (e.g. LibEvWebSocketServer updates read/write notification state for the socket descriptor for use with a later Wait() call).  It is recommended that this function be called after calling $ws->Write() on a specific WebSocket.
 
 WebSocketServer::GetClient($id)
 -------------------------------
