@@ -377,7 +377,7 @@
 			$urlinfo = HTTP::ExtractURL($opsdata[$key]["url"]);
 
 			// Handle images.
-			$rows = $root->Find('img[src],img[srcset]');
+			$rows = $root->Find('img[src],img[srcset],picture source[srcset]');
 			foreach ($rows as $row)
 			{
 				if (isset($row->src))
@@ -409,10 +409,10 @@
 			}
 
 			// Handle link tags with hrefs.
-			$rows = $root->Find('link[href]');
+			$rows = $root->Find('link[href],use[xlink\:href]');
 			foreach ($rows as $row)
 			{
-				$url = HTTP::ConvertRelativeToAbsoluteURL($urlinfo, $row->href);
+				$url = HTTP::ConvertRelativeToAbsoluteURL($urlinfo, (isset($row->href) ? $row->href : $row->{"xlink:href"}));
 
 				$row->href = PrepareManifestResourceItem($key, ((isset($row->rel) && strtolower($row->rel) === "stylesheet") || (isset($row->type) && strtolower($row->type) === "text/css") ? ".css" : false), $url);
 			}
