@@ -1609,7 +1609,7 @@
 						if (!is_array($val))
 						{
 							if (is_string($val) || is_numeric($val))  $val = array($val);
-							else  return array("success" => false, "error" => "A supplied 'postvars' value is an invalid type.  Expected string, numeric, or array.", "errorcode" => "invalid_postvars_value", "info" => array($name, $val));
+							else  return array("success" => false, "error" => "A supplied 'postvars' value is an invalid type.  Expected string, numeric, or array.", "errorcode" => "invalid_postvars_value", "info" => array("name" => $name, "val" => $val));
 						}
 
 						foreach ($val as $val2)
@@ -1660,7 +1660,7 @@
 						if (!is_array($val))
 						{
 							if (is_string($val) || is_numeric($val))  $val = array($val);
-							else  return array("success" => false, "error" => "A supplied 'postvars' value is an invalid type.  Expected string, numeric, or array.", "errorcode" => "invalid_postvars_value", "info" => array($name, $val));
+							else  return array("success" => false, "error" => "A supplied 'postvars' value is an invalid type.  Expected string, numeric, or array.", "errorcode" => "invalid_postvars_value", "info" => array("name" => $name, "val" => $val));
 						}
 
 						foreach ($val as $val2)  $body .= ($body != "" ? "&" : "") . urlencode($name) . "=" . urlencode($val2);
