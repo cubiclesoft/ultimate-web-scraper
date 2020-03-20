@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP WebSocket class.
-	// (C) 2017 CubicleSoft.  All Rights Reserved.
+	// (C) 2020 CubicleSoft.  All Rights Reserved.
 
 	// Implements RFC 6455 (WebSocket protocol).
 	// Requires the CubicleSoft PHP HTTP/HTTPS class.
@@ -500,7 +500,7 @@
 				// Decode the payload.
 				for ($x = 0; $x < $length; $x++)
 				{
-					$payload{$x} = chr(ord($payload{$x}) ^ ord($maskingkey{$x % 4}));
+					$payload[$x] = chr(ord($payload[$x]) ^ ord($maskingkey[$x % 4]));
 				}
 			}
 
@@ -565,7 +565,7 @@
 				$y = strlen($payload);
 				for ($x = 0; $x < $y; $x++)
 				{
-					$payload{$x} = chr(ord($payload{$x}) ^ ord($maskingkey{$x % 4}));
+					$payload[$x] = chr(ord($payload[$x]) ^ ord($maskingkey[$x % 4]));
 				}
 			}
 
@@ -598,7 +598,7 @@
 				$result = 0;
 				for ($x = 0; $x < 8; $x++)
 				{
-					$result = ($result * 256) + ord($data{$x});
+					$result = ($result * 256) + ord($data[$x]);
 				}
 
 				return $result;

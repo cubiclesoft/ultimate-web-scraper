@@ -1,6 +1,6 @@
 <?php
 	// Deflate stream class.  Default is RFC1951 (raw deflate).  Supports RFC1950 (ZLIB) and RFC1952 (gzip).
-	// (C) 2016 CubicleSoft.  All Rights Reserved.
+	// (C) 2020 CubicleSoft.  All Rights Reserved.
 
 	class DeflateStream
 	{
@@ -140,7 +140,7 @@
 					$y = strlen($data);
 					for ($x = 0; $x < $y; $x++)
 					{
-						$this->options["a"] = ($this->options["a"] + ord($data{$x})) % 65521;
+						$this->options["a"] = ($this->options["a"] + ord($data[$x])) % 65521;
 						$this->options["b"] = ($this->options["b"] + $this->options["a"]) % 65521;
 					}
 				}

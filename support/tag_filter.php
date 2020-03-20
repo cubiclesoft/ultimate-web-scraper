@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP Tag Filter class.  Can repair broken HTML.
-	// (C) 2018 CubicleSoft.  All Rights Reserved.
+	// (C) 2020 CubicleSoft.  All Rights Reserved.
 
 	class TagFilterStream
 	{
@@ -70,7 +70,7 @@
 					$startpos = $cx + 1;
 					for ($x = $startpos; $x < $cy; $x++)
 					{
-						$val = ord($content{$x});
+						$val = ord($content[$x]);
 						if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 						{
 							if ($x > $cx + 1)  $prefix = ltrim(substr($content, $cx + 1, $x - $cx - 1));
@@ -171,7 +171,7 @@
 					$cx = $startpos;
 					for (; $cx < $cy; $cx++)
 					{
-						$val = ord($content{$cx});
+						$val = ord($content[$cx]);
 						if ($val > 127)  $parse = true;
 						else if (!(($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($cx > $startpos && (($val >= $zero && $val <= $nine) || $val == $hyphen || $val == $underscore || $val == $period)) || ($this->options["allow_namespaces"] && $val == $colon)))  break;
 					}
@@ -241,7 +241,7 @@
 							// Find attribute key/property.
 							for ($x = $cx; $x < $cy; $x++)
 							{
-								if ($content{$x} === ">" || $content{$x} === "<")
+								if ($content[$x] === ">" || $content[$x] === "<")
 								{
 									$cx = $x;
 
@@ -249,7 +249,7 @@
 
 									break;
 								}
-								else if ($content{$x} === "/")
+								else if ($content[$x] === "/")
 								{
 									$pos = strpos($content, ">", $x + 1);
 									if ($pos !== false && trim(substr($content, $x + 1, $pos - $x - 1)) === "")
@@ -262,10 +262,10 @@
 										break;
 									}
 								}
-								else if ($content{$x} === "\"" || $content{$x} === "'" || $content{$x} === "`")
+								else if ($content[$x] === "\"" || $content[$x] === "'" || $content[$x] === "`")
 								{
-									$pos = strpos($content, $content{$x}, $x + 1);
-									if ($pos === false)  $content .= $content{$x};
+									$pos = strpos($content, $content[$x], $x + 1);
+									if ($pos === false)  $content .= $content[$x];
 									else if (isset($this->options["untouched_tag_attr_keys"][$tagname]))
 									{
 										$keyname = substr($content, $x, $pos - $x + 1);
@@ -298,7 +298,7 @@
 								}
 								else
 								{
-									$val = ord($content{$x});
+									$val = ord($content[$x]);
 									if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2))
 									{
 										$cx = $x;
@@ -306,8 +306,8 @@
 
 										for (; $cx < $cy; $cx++)
 										{
-											if ($content{$cx} === " " || $content{$cx} === "=" || $content{$cx} === "\"" || $content{$cx} === "'" || $content{$cx} === "`" || $content{$cx} === ">" || $content{$cx} === "<" || $content{$cx} === "/" || $content{$cx} === "\0" || $content{$cx} === "\r" || $content{$cx} === "\n" || $content{$cx} === "\t")  break;
-											else if (ord($content{$cx}) > 127)  $parse = true;
+											if ($content[$cx] === " " || $content[$cx] === "=" || $content[$cx] === "\"" || $content[$cx] === "'" || $content[$cx] === "`" || $content[$cx] === ">" || $content[$cx] === "<" || $content[$cx] === "/" || $content[$cx] === "\0" || $content[$cx] === "\r" || $content[$cx] === "\n" || $content[$cx] === "\t")  break;
+											else if (ord($content[$cx]) > 127)  $parse = true;
 										}
 
 										$keyname = substr($content, $x, $cx - $x);
@@ -342,7 +342,7 @@
 							// Find the equals sign OR the start of the next attribute/property.
 							for ($x = $cx; $x < $cy; $x++)
 							{
-								if ($content{$x} === ">" || $content{$x} === "<")
+								if ($content[$x] === ">" || $content[$x] === "<")
 								{
 									$cx = $x;
 
@@ -352,7 +352,7 @@
 
 									break;
 								}
-								else if ($content{$x} === "=")
+								else if ($content[$x] === "=")
 								{
 									$cx = $x + 1;
 
@@ -360,7 +360,7 @@
 
 									break;
 								}
-								else if ($content{$x} === "\"" || $content{$x} === "'")
+								else if ($content[$x] === "\"" || $content[$x] === "'")
 								{
 									$cx = $x;
 
@@ -372,7 +372,7 @@
 								}
 								else
 								{
-									$val = ord($content{$x});
+									$val = ord($content[$x]);
 									if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || ($val >= $zero && $val <= $nine))
 									{
 										$cx = $x;
@@ -399,7 +399,7 @@
 						{
 							for ($x = $cx; $x < $cy; $x++)
 							{
-								if ($content{$x} === ">" || $content{$x} === "<")
+								if ($content[$x] === ">" || $content[$x] === "<")
 								{
 									$cx = $x;
 
@@ -409,10 +409,10 @@
 
 									break;
 								}
-								else if ($content{$x} === "\"" || $content{$x} === "'" || $content{$x} === "`")
+								else if ($content[$x] === "\"" || $content[$x] === "'" || $content[$x] === "`")
 								{
-									$pos = strpos($content, $content{$x}, $x + 1);
-									if ($pos === false)  $content .= $content{$x};
+									$pos = strpos($content, $content[$x], $x + 1);
+									if ($pos === false)  $content .= $content[$x];
 									else
 									{
 										$value = substr($content, $x + 1, $pos - $x - 1);
@@ -423,13 +423,13 @@
 
 									break;
 								}
-								else if ($content{$x} !== "\0" && $content{$x} !== "\r" && $content{$x} !== "\n" && $content{$x} !== "\t" && $content{$x} !== " ")
+								else if ($content[$x] !== "\0" && $content[$x] !== "\r" && $content[$x] !== "\n" && $content[$x] !== "\t" && $content[$x] !== " ")
 								{
 									$cx = $x;
 
 									for (; $cx < $cy; $cx++)
 									{
-										if ($content{$cx} === "\0" || $content{$cx} === "\r" || $content{$cx} === "\n" || $content{$cx} === "\t" || $content{$cx} === " " || $content{$cx} === "<" || $content{$cx} === ">")
+										if ($content[$cx] === "\0" || $content[$cx] === "\r" || $content[$cx] === "\n" || $content[$cx] === "\t" || $content[$cx] === " " || $content[$cx] === "<" || $content[$cx] === ">")
 										{
 											break;
 										}
@@ -474,20 +474,20 @@
 										$vx = $pos + 2;
 										if ($vx < $vy)
 										{
-											if ($value{$vx} == "x" || $value{$vx} == "X")
+											if ($value[$vx] == "x" || $value[$vx] == "X")
 											{
 												$vx++;
 												if ($vx < $vy)
 												{
 													for ($x = $vx; $x < $vy; $x++)
 													{
-														$val = ord($value{$x});
+														$val = ord($value[$x]);
 														if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 													}
 
 													$num = hexdec(substr($value, $vx, $x - $vx));
 													$vx = $x;
-													if ($vx < $vy && $value{$vx} == ";")  $vx++;
+													if ($vx < $vy && $value[$vx] == ";")  $vx++;
 
 													$value2 .= self::UTF8Chr($num);
 												}
@@ -496,13 +496,13 @@
 											{
 												for ($x = $vx; $x < $vy; $x++)
 												{
-													$val = ord($value{$x});
+													$val = ord($value[$x]);
 													if (!($val >= $zero && $val <= $nine))  break;
 												}
 
 												$num = (int)substr($value, $vx, $x - $vx);
 												$vx = $x;
-												if ($vx < $vy && $value{$vx} == ";")  $vx++;
+												if ($vx < $vy && $value[$vx] == ";")  $vx++;
 
 												$value2 .= self::UTF8Chr($num);
 											}
@@ -518,7 +518,7 @@
 										{
 											for ($x = $vx; $x < $vy; $x++)
 											{
-												$val = ord($value{$x});
+												$val = ord($value[$x]);
 												if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 											}
 
@@ -580,7 +580,7 @@
 
 					unset($attrs[""]);
 
-					if ($cx < $cy && $content{$cx} === ">")  $cx++;
+					if ($cx < $cy && $content[$cx] === ">")  $cx++;
 
 					if (isset($this->options["tag_name_map"][$prefix . $tagname]))  $outtagname = $tagname = $this->options["tag_name_map"][$prefix . $tagname];
 
@@ -899,19 +899,19 @@
 			$y = strlen($data);
 			while ($x < $y)
 			{
-				$tempchr = ord($data{$x});
+				$tempchr = ord($data[$x]);
 				if (($tempchr >= 0x20 && $tempchr <= 0x7E) || $tempchr == 0x09 || $tempchr == 0x0A || $tempchr == 0x0D)  $x++;
 				else if ($tempchr < 0xC2)  return false;
 				else
 				{
 					$left = $y - $x;
-					if ($left > 1)  $tempchr2 = ord($data{$x + 1});
+					if ($left > 1)  $tempchr2 = ord($data[$x + 1]);
 					else  return false;
 
 					if (($tempchr >= 0xC2 && $tempchr <= 0xDF) && ($tempchr2 >= 0x80 && $tempchr2 <= 0xBF))  $x += 2;
 					else
 					{
-						if ($left > 2)  $tempchr3 = ord($data{$x + 2});
+						if ($left > 2)  $tempchr3 = ord($data[$x + 2]);
 						else  return false;
 
 						if ($tempchr3 < 0x80 || $tempchr3 > 0xBF)  return false;
@@ -921,7 +921,7 @@
 						else if ($tempchr == 0xED && ($tempchr2 >= 0x80 && $tempchr2 <= 0x9F))  $x += 3;
 						else
 						{
-							if ($left > 3)  $tempchr4 = ord($data{$x + 3});
+							if ($left > 3)  $tempchr4 = ord($data[$x + 3]);
 							else  return false;
 
 							if ($tempchr4 < 0x80 || $tempchr4 > 0xBF)  return false;
@@ -2642,7 +2642,7 @@
 					{
 						if ($cx >= $cy)  break;
 
-						switch ($query{$cx})
+						switch ($query[$cx])
 						{
 							case "#":
 							{
@@ -2683,14 +2683,14 @@
 								$cx++;
 
 								// Find a non-whitespace character.
-								while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+								while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
 								break;
 							}
 							case ":":
 							{
 								$cx++;
-								if ($cx >= $cy || $query{$cx} != ":")  $token["type"] = "pseudo-class";
+								if ($cx >= $cy || $query[$cx] != ":")  $token["type"] = "pseudo-class";
 								else
 								{
 									$token["type"] = "pseudo-element";
@@ -2771,9 +2771,9 @@
 									$token[$state2] = $ident;
 
 									// Find a non-whitespace character.
-									while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+									while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
-									if ($cx >= $cy || $query{$cx} == "]")
+									if ($cx >= $cy || $query[$cx] == "]")
 									{
 										$token["cmp"] = false;
 										$tokens[] = $token;
@@ -2782,28 +2782,28 @@
 									}
 									else
 									{
-										if ($query{$cx} == "=")
+										if ($query[$cx] == "=")
 										{
 											$token["cmp"] = "=";
 											$cx++;
 										}
-										else if ($cx + 1 < $cy && ($query{$cx} == "^" || $query{$cx} == "$" || $query{$cx} == "*" || $query{$cx} == "~" || $query{$cx} == "|") && $query{$cx + 1} == "=")
+										else if ($cx + 1 < $cy && ($query[$cx] == "^" || $query[$cx] == "$" || $query[$cx] == "*" || $query[$cx] == "~" || $query[$cx] == "|") && $query[$cx + 1] == "=")
 										{
 											$token["cmp"] = substr($query, $cx, 2);
 											$cx += 2;
 										}
 										else
 										{
-											return array("success" => false, "error" => "Unknown or invalid attribute comparison operator '" . $query{$cx} . "' detected at position " . $cx . ".", "errorcode" => "invalid_attr_compare", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
+											return array("success" => false, "error" => "Unknown or invalid attribute comparison operator '" . $query[$cx] . "' detected at position " . $cx . ".", "errorcode" => "invalid_attr_compare", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
 										}
 
 										// Find a non-whitespace character.
-										while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+										while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
-										if ($cx < $cy && ($query{$cx} == "\"" || $query{$cx} == "'"))
+										if ($cx < $cy && ($query[$cx] == "\"" || $query[$cx] == "'"))
 										{
 											$state = "string";
-											$endchr = ord($query{$cx});
+											$endchr = ord($query[$cx]);
 											$cx++;
 										}
 										else
@@ -2823,12 +2823,12 @@
 									$token[$state2] = $ident;
 
 									// Find a non-whitespace character.
-									while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+									while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
 									$tokens[] = $token;
 									$state = ($token["not"] ? "negate_close" : "next_selector");
 
-									if ($cx < $cy && $query{$cx} == "]")  $cx++;
+									if ($cx < $cy && $query[$cx] == "]")  $cx++;
 								}
 
 								break;
@@ -2844,7 +2844,7 @@
 								if ($token["type"] == "pseudo-class" && $ident == "not")
 								{
 									if ($token["not"])  return array("success" => false, "error" => "Invalid :not() embedded inside another :not() detected at position " . $cx . ".", "errorcode" => "invalid_not", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
-									if ($cx >= $cy || $query{$cx} != "(")  return array("success" => false, "error" => "Missing '(' detected at position " . $cx . ".", "errorcode" => "invalid_not", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
+									if ($cx >= $cy || $query[$cx] != "(")  return array("success" => false, "error" => "Missing '(' detected at position " . $cx . ".", "errorcode" => "invalid_not", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
 
 									unset($token["type"]);
 									$token["not"] = true;
@@ -2853,13 +2853,13 @@
 									$cx++;
 
 									// Find a non-whitespace character.
-									while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+									while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 								}
 								else
 								{
 									$token["pseudo"] = $ident;
 
-									if ($cx < $cy && $query{$cx} == "(")
+									if ($cx < $cy && $query[$cx] == "(")
 									{
 										$token["expression"] = "";
 										$ident = "";
@@ -2883,9 +2883,9 @@
 					case "negate_close":
 					{
 						// Find a non-whitespace character.
-						while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+						while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
-						if ($cx < $cy && $query{$cx} != ")")  return array("success" => false, "error" => "Invalid :not() close character '" . $query{$cx} . "' detected at position " . $cx . ".", "errorcode" => "invalid_negate_close", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
+						if ($cx < $cy && $query[$cx] != ")")  return array("success" => false, "error" => "Invalid :not() close character '" . $query[$cx] . "' detected at position " . $cx . ".", "errorcode" => "invalid_negate_close", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
 
 						$cx++;
 						$state = "next_selector";
@@ -2897,11 +2897,11 @@
 						$token["expression"] .= $ident;
 
 						// Find a non-whitespace character.
-						while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+						while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
 						if ($cx >= $cy)  break;
 
-						if ($query{$cx} == ")")
+						if ($query[$cx] == ")")
 						{
 							if (substr($token["pseudo"], 0, 4) === "nth-")
 							{
@@ -2944,20 +2944,20 @@
 							$state = ($token["not"] ? "negate_close" : "next_selector");
 							$cx++;
 						}
-						else if ($query{$cx} == "+" || $query{$cx} == "-")
+						else if ($query[$cx] == "+" || $query[$cx] == "-")
 						{
-							$ident = $query{$cx};
+							$ident = $query[$cx];
 							$cx++;
 						}
-						else if ($query{$cx} == "\"" || $query{$cx} == "'")
+						else if ($query[$cx] == "\"" || $query[$cx] == "'")
 						{
 							$state = "string";
-							$endchr = ord($query{$cx});
+							$endchr = ord($query[$cx]);
 							$cx++;
 						}
 						else
 						{
-							$val = ord($query{$cx});
+							$val = ord($query[$cx]);
 
 							$state = ($val >= $zero && $val <= $nine ? "ident_name" : "ident");
 							$allownamespace = false;
@@ -2979,7 +2979,7 @@
 
 						for (; $cx < $cy; $cx++)
 						{
-							$val = ord($query{$cx});
+							$val = ord($query[$cx]);
 
 							if ($val == $endchr)
 							{
@@ -2994,14 +2994,14 @@
 								else
 								{
 									$cx++;
-									$val = ord($query{$cx});
+									$val = ord($query[$cx]);
 
 									if (($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine))
 									{
 										// Unicode (e.g. \0020)
 										for ($x = $cx + 1; $x < $cy; $x++)
 										{
-											$val = ord($query{$x});
+											$val = ord($query[$x]);
 											if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 										}
 
@@ -3011,18 +3011,18 @@
 										$ident .= TagFilterStream::UTF8Chr($num);
 
 										// Skip one optional \r\n OR a single whitespace char.
-										if ($cx + 2 < $cy && $query{$cx + 1} == "\r" && $query{$cx + 2} == "\n")  $cx += 2;
-										else if ($cx + 1 < $cy && ($query{$cx + 1} == " " || $query{$cx + 1} == "\r" || $query{$cx + 1} == "\n" || $query{$cx + 1} == "\t" || $query{$cx + 1} == "\f"))  $cx++;
+										if ($cx + 2 < $cy && $query[$cx + 1] == "\r" && $query[$cx + 2] == "\n")  $cx += 2;
+										else if ($cx + 1 < $cy && ($query[$cx + 1] == " " || $query[$cx + 1] == "\r" || $query[$cx + 1] == "\n" || $query[$cx + 1] == "\t" || $query[$cx + 1] == "\f"))  $cx++;
 									}
 									else
 									{
-										$ident .= $query{$cx};
+										$ident .= $query[$cx];
 									}
 								}
 							}
 							else
 							{
-								$ident .= $query{$cx};
+								$ident .= $query[$cx];
 							}
 						}
 
@@ -3037,7 +3037,7 @@
 
 						if ($cx >= $cy)  break;
 
-						if ($query{$cx} != "-")  $ident = "";
+						if ($query[$cx] != "-")  $ident = "";
 						else
 						{
 							$ident = "-";
@@ -3054,13 +3054,13 @@
 						$startcx = $cx;
 						for (; $cx < $cy; $cx++)
 						{
-							$val = ord($query{$cx});
+							$val = ord($query[$cx]);
 
 							if ($val != $period && ($val < $zero || $val > $nine))  $allowperiod = false;
 
 							if (($val >= $a && $val <= $z) || ($val >= $a2 && $val <= $z2) || $val == $underscore || $val > 127)
 							{
-								$ident .= $query{$cx};
+								$ident .= $query[$cx];
 							}
 							else if ($allowperiod && $val == $period)
 							{
@@ -3071,11 +3071,11 @@
 							else if ($val == $hyphen || ($val >= $zero && $val <= $nine))
 							{
 								// Only allowed AFTER the first character.
-								if (!$range)  return array("success" => false, "error" => "Invalid identifier character '" . $query{$cx} . "' detected at position " . $cx . ".", "errorcode" => "invalid_ident", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
+								if (!$range)  return array("success" => false, "error" => "Invalid identifier character '" . $query[$cx] . "' detected at position " . $cx . ".", "errorcode" => "invalid_ident", "selector" => $query, "startpos" => $currcx, "pos" => $cx, "state" => $currstate, "tokens" => self::ReorderSelectorTokens(array_slice($tokens, 0, $lastor), $splitrules), "splitrules" => $splitrules);
 
 								$allowperiod = false;
 
-								$ident .= $query{$cx};
+								$ident .= $query[$cx];
 							}
 							else if ($val == $backslash)
 							{
@@ -3084,14 +3084,14 @@
 								else
 								{
 									$cx++;
-									$val = ord($query{$cx});
+									$val = ord($query[$cx]);
 
 									if (($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine))
 									{
 										// Unicode (e.g. \0020)
 										for ($x = $cx + 1; $x < $cy; $x++)
 										{
-											$val = ord($query{$x});
+											$val = ord($query[$x]);
 											if (!(($val >= $a && $val <= $f) || ($val >= $a2 && $val <= $f2) || ($val >= $zero && $val <= $nine)))  break;
 										}
 
@@ -3101,16 +3101,16 @@
 										$ident .= TagFilterStream::UTF8Chr($num);
 
 										// Skip one optional \r\n OR a single whitespace char.
-										if ($cx + 2 < $cy && $query{$cx + 1} == "\r" && $query{$cx + 2} == "\n")  $cx += 2;
-										else if ($cx + 1 < $cy && ($query{$cx + 1} == " " || $query{$cx + 1} == "\r" || $query{$cx + 1} == "\n" || $query{$cx + 1} == "\t" || $query{$cx + 1} == "\f"))  $cx++;
+										if ($cx + 2 < $cy && $query[$cx + 1] == "\r" && $query[$cx + 2] == "\n")  $cx += 2;
+										else if ($cx + 1 < $cy && ($query[$cx + 1] == " " || $query[$cx + 1] == "\r" || $query[$cx + 1] == "\n" || $query[$cx + 1] == "\t" || $query[$cx + 1] == "\f"))  $cx++;
 									}
 									else if ($val != $cr && $val != $nl && $val != $ff)
 									{
-										$ident .= $query{$cx};
+										$ident .= $query[$cx];
 									}
 								}
 							}
-							else if ($allownamespace && $val == $pipe && ($cx + 1 >= $cy || $query{$cx + 1} != "="))
+							else if ($allownamespace && $val == $pipe && ($cx + 1 >= $cy || $query[$cx + 1] != "="))
 							{
 								// Handle namespaces (rare).
 								if ($ident != "")
@@ -3124,7 +3124,7 @@
 							else if ($val == $asterisk)
 							{
 								// Handle wildcard (*) characters.
-								if ($allownamespace && $cx + 1 < $cy && $query{$cx + 1} == "|")
+								if ($allownamespace && $cx + 1 < $cy && $query[$cx + 1] == "|")
 								{
 									// Wildcard namespace (*|).
 									$namespace = "*";
@@ -3166,11 +3166,11 @@
 						$token = array("type" => "combine");
 
 						// Find a non-whitespace character.
-						while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+						while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 
 						if ($cx < $cy)
 						{
-							switch ($query{$cx})
+							switch ($query[$cx])
 							{
 								case ",":
 								{
@@ -3214,7 +3214,7 @@
 							$tokens[] = $token;
 
 							// Find a non-whitespace character.
-							while ($cx < $cy && ($query{$cx} == " " || $query{$cx} == "\t" || $query{$cx} == "\r" || $query{$cx} == "\n" || $query{$cx} == "\f"))  $cx++;
+							while ($cx < $cy && ($query[$cx] == " " || $query[$cx] == "\t" || $query[$cx] == "\r" || $query[$cx] == "\n" || $query[$cx] == "\f"))  $cx++;
 						}
 
 						$state = "next_selector";
