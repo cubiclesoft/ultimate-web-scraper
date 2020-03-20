@@ -265,13 +265,14 @@
 
 		public static function GetSafeSSLOpts($cafile = true, $cipherstype = "intermediate")
 		{
-			// Result array last updated May 3, 2017.
+			// Result array last updated Feb 15, 2020.
 			$result = array(
 				"ciphers" => self::GetSSLCiphers($cipherstype),
 				"disable_compression" => true,
 				"allow_self_signed" => false,
 				"verify_peer" => true,
-				"verify_depth" => 5
+				"verify_depth" => 5,
+				"SNI_enabled" => true
 			);
 
 			if ($cafile === true)  $result["auto_cainfo"] = true;
@@ -450,6 +451,18 @@
 				$cainfo = ini_get("curl.cainfo");
 				if ($cainfo !== false && strlen($cainfo) > 0)  $options[$key]["cafile"] = $cainfo;
 				else if (file_exists(str_replace("\\", "/", dirname(__FILE__)) . "/cacert.pem"))  $options[$key]["cafile"] = str_replace("\\", "/", dirname(__FILE__)) . "/cacert.pem";
+			}
+
+			if (isset($options[$key]["auto_peer_name"]))
+			{
+				unset($options[$key]["auto_peer_name"]);
+
+				if (!isset($options["headers"]["Host"]))  $options[$key]["peer_name"] = $host;
+				else
+				{
+					$info = self::ExtractURL("https://" . $options["headers"]["Host"]);
+					$options[$key]["peer_name"] = $info["host"];
+				}
 			}
 
 			if (isset($options[$key]["auto_cn_match"]))
@@ -722,7 +735,7 @@
 			if ($state[$prefix . "data"] !== "")
 			{
 				// Serious bug in PHP core for non-blocking SSL sockets:  https://bugs.php.net/bug.php?id=72333
-				if ($state["secure"] && $state["async"])
+				if ($state["secure"] && $state["async"] && version_compare(PHP_VERSION, "7.1.4") <= 0)
 				{
 					// This is a huge hack that has a pretty good chance of blocking on the socket.
 					// Peeling off up to just 4KB at a time helps to minimize that possibility.  It's better than guaranteed failure of the socket though.
@@ -850,6 +863,8 @@
 							if ($state["async"] && function_exists("stream_socket_client") && (($state["useproxy"] && $state["proxysecure"]) || (!$state["useproxy"] && $state["secure"])))  $state["state"] = "connecting_enable_crypto";
 							else  $state["state"] = "connection_ready";
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 						case "connecting_enable_crypto":
@@ -860,6 +875,8 @@
 
 							if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_socket_enable_crypto() failure occurred.  Most likely cause:  Connection failure or incompatible crypto setup."), "errorcode" => "stream_socket_enable_crypto_failed"));
 							else if ($result === true)  $state["state"] = "connection_ready";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -910,6 +927,8 @@
 								$state["state"] = "send_data";
 							}
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 						case "proxy_connect_send":
@@ -928,8 +947,11 @@
 								$options2["debug_callback_opts"] = $state["options"]["debug_callback_opts"];
 							}
 							$state["proxyresponse"] = self::InitResponseState($state["fp"], $state["debug"], $options2, $state["startts"], $state["timeout"], $state["result"], false, $state["nextread"]);
+							$state["proxyresponse"]["proxyconnect"] = true;
 
 							$state["state"] = "proxy_connect_response";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -949,6 +971,8 @@
 
 							if ($state["secure"])  $state["state"] = "proxy_connect_enable_crypto";
 							else  $state["state"] = "send_data";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -977,6 +1001,8 @@
 
 								// Secure connection established.
 								$state["state"] = "send_data";
+
+								if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 							}
 
 							break;
@@ -1100,7 +1126,12 @@
 							// All done sending data.
 							if ($state["data"] === "")
 							{
-								if ($state["client"])  $state["state"] = "receive_switch";
+								if ($state["client"])
+								{
+									$state["state"] = "receive_switch";
+
+									if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+								}
 								else
 								{
 									$state["result"]["endts"] = microtime(true);
@@ -1129,6 +1160,8 @@
 							}
 
 							$state["state"] = "done";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -1170,6 +1203,8 @@
 							$state["state"] = "headers";
 							$state["result"]["headers"] = array();
 							$state["lastheader"] = "";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -1217,6 +1252,8 @@
 							$state["result"]["headers"] = array();
 							$state["lastheader"] = "";
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 						case "headers":
@@ -1253,13 +1290,23 @@
 								}
 
 								// Additional headers (optional) are the last bit of data in a chunked response.
-								if ($state["state"] === "body_chunked_headers")  $state["state"] = "body_finalize";
+								if ($state["state"] === "body_chunked_headers")
+								{
+									$state["state"] = "body_finalize";
+
+									if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+								}
 								else
 								{
 									$state["result"]["body"] = "";
 
 									// Handle 100 Continue below OR WebSocket among other things by letting the caller handle reading the body.
-									if ($state["result"]["response"]["code"] == 100 || $state["result"]["response"]["code"] == 101)  $state["state"] = "done";
+									if ($state["result"]["response"]["code"] == 100 || $state["result"]["response"]["code"] == 101)
+									{
+										$state["state"] = "done";
+
+										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+									}
 									else
 									{
 										// Determine if decoding the content is possible and necessary.
@@ -1282,11 +1329,13 @@
 										else
 										{
 											$state["sizeleft"] = (isset($state["result"]["headers"]["Content-Length"]) ? (double)preg_replace('/[^0-9]/', "", $state["result"]["headers"]["Content-Length"][0]) : false);
-											$state["state"] = ($state["sizeleft"] !== false || $state["client"] ? "body_content" : "done");
+											$state["state"] = (!isset($state["proxyconnect"]) && ($state["sizeleft"] !== false || $state["client"]) ? "body_content" : "done");
 										}
 
+										if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 										// Let servers have a chance to alter limits before processing the input body.
-										if (!$state["client"] && $state["state"] !== "done")    return array("success" => false, "error" => self::HTTPTranslate("Intermission for adjustments to limits."), "errorcode" => "no_data");
+										if (!$state["client"] && $state["state"] !== "done")  return array("success" => false, "error" => self::HTTPTranslate("Intermission for adjustments to limits."), "errorcode" => "no_data");
 									}
 								}
 							}
@@ -1324,6 +1373,8 @@
 							$state["sizeleft"] = $size2;
 							$state["state"] = "body_chunked_data";
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 						case "body_chunked_data":
@@ -1337,6 +1388,8 @@
 								$state["lastheader"] = "";
 								$state["state"] = "body_chunked_headers";
 							}
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -1352,6 +1405,8 @@
 
 							$state["state"] = "body_chunked_size";
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 						case "body_content":
@@ -1360,6 +1415,8 @@
 							if (!$result["success"] && (($state["sizeleft"] !== false && $state["sizeleft"] > 0) || ($state["sizeleft"] === false && $result["errorcode"] !== "stream_read_error" && $result["errorcode"] !== "peer_disconnected" && $result["errorcode"] !== "stream_timeout_exceeded")))  return self::CleanupErrorState($state, $result);
 
 							$state["state"] = "body_finalize";
+
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
 							break;
 						}
@@ -1376,6 +1433,8 @@
 
 							$state["state"] = "done";
 
+							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
+
 							break;
 						}
 					}
@@ -1388,6 +1447,8 @@
 						$state["result"]["response"] = false;
 						$state["result"]["headers"] = false;
 						$state["result"]["body"] = false;
+
+						if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 					}
 				}
 
@@ -1730,7 +1791,12 @@
 					}
 					else if ($secure)
 					{
-						if (!isset($options["sslopts"]) || !is_array($options["sslopts"]))  $options["sslopts"] = self::GetSafeSSLOpts();
+						if (!isset($options["sslopts"]) || !is_array($options["sslopts"]))
+						{
+							$options["sslopts"] = self::GetSafeSSLOpts();
+							$options["sslopts"]["auto_peer_name"] = true;
+						}
+
 						self::ProcessSSLOptions($options, "sslopts", $host);
 						foreach ($options["sslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
