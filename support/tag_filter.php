@@ -83,7 +83,7 @@
 					if ($prefix === "")  $open = true;
 					else
 					{
-						if ($prefix{0} === "!")
+						if ($prefix[0] === "!")
 						{
 							// !DOCTYPE vs. comment.
 							if (substr($prefix, 0, 3) !== "!--")
@@ -126,13 +126,13 @@
 								continue;
 							}
 						}
-						else if ($prefix{0} === "/")
+						else if ($prefix[0] === "/")
 						{
 							// Close tag.
 							$prefix = "/";
 							$open = false;
 						}
-						else if ($prefix{0} === "<")
+						else if ($prefix[0] === "<")
 						{
 							// Stray less than.  Encode and reset.
 							$content2 = "&lt;";

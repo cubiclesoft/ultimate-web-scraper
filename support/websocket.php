@@ -463,14 +463,14 @@
 		{
 			if (strlen($this->readdata) < 2)  return false;
 
-			$chr = ord($this->readdata{0});
+			$chr = ord($this->readdata[0]);
 			$fin = (($chr & 0x80) ? true : false);
 			$rsv1 = (($chr & 0x40) ? true : false);
 			$rsv2 = (($chr & 0x20) ? true : false);
 			$rsv3 = (($chr & 0x10) ? true : false);
 			$opcode = $chr & 0x0F;
 
-			$chr = ord($this->readdata{1});
+			$chr = ord($this->readdata[1]);
 			$mask = (($chr & 0x80) ? true : false);
 			$length = $chr & 0x7F;
 			if ($length == 126)  $start = 4;
