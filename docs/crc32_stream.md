@@ -1,9 +1,11 @@
 CRC32Stream Class:  'support/crc32_stream.php'
 ==============================================
 
-This class calculates any CRC32 checksum in a stream-enabled class.  It is a direct port of the CubicleSoft C++ implementation of the same name.
+This class calculates any CRC32 checksum (any polynomial/reflection combo) in a stream-enabled class.  It is a direct port of the CubicleSoft C++ implementation of the same name.
 
 A Cyclic Redundancy Check, or CRC, is used for detecting if an error exists somewhere in a data stream, but generally doesn't provide a means of correcting that error.  CRC32Stream is used by the DeflateStream class to validate incoming data for compression/decompression and can handle an unlimited amount of data due to the streaming capabilities (unlike the built-in and slightly buggy crc32 function in PHP).
+
+This class will internally use the PHP Hash extension in 'crc32b' mode if available AND the defaults are used for the Init() call.  Otherwise, it falls back to a less-performant userland implementation.
 
 Example usage:
 
