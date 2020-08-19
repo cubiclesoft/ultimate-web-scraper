@@ -204,7 +204,7 @@
 		{
 			rewind($this->fp);
 
-			// Hack!  Because ftell() on a stream with a filter is still broken even under the latest PHP a mere 4 years later.
+			// Hack!  Because ftell() on a stream with a filter is still broken even under the latest PHP a mere 11 years later.
 			// See:  https://bugs.php.net/bug.php?id=49874
 			ob_start();
 			fpassthru($this->fp);
