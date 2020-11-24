@@ -605,6 +605,28 @@ One other useful tip is to attempt to use wildcard SQL characters or text patter
 
 Another useful tip is to be aware of URLs for detail pages.  For example, when viewing details about an item from a search and the item has "id=2018000001" in the URL for that page and then another item has "id=2017003449", then there may be a predictable pattern of year + sequence within that year as part of the ID for any given item.  Searching may not even be necessary as it may be possible to generate the URL dynamically (e.g. "id=2018000001", "id=2018000002", "id=2018000003") if the goal is to copy all records.
 
+Advanced Troubleshooting
+------------------------
+
+Let's say you encounter a webpage that displays just fine in a regular web browser but does not return the expected data when the same apparent request is made using Ultimate Web Scraper Toolkit.  The first thing to do when troubleshooting is to go back to the very beginning with a fresh session:
+
+* Start a Private Web Browsing/Incognito window.  (Close existing private/incognito windows first.)
+* Open Developer Tools, go to the Network tab, and enable Persistent Logs.  Be sure to turn this off when you are done.
+* Visit the starting URL and traverse to the problem location.
+
+Persistent Logs keeps track of every single request made, including redirects.
+
+The next step is to analyze the entire history looking for cookies that are set and various request headers that are sent to each server.  There's always something that is overlooked.  Here are several things to specifically look for:
+
+* A missing or incorrect HTTP cookie.  A missing cookie may be set by sending a missing request to the server.  That is, simply following a more natural path that a regular user would take with some extra requests may be all that is needed to set the correct cookie.  A cookie could also be set by Javascript, which usually requires setting such cookies manually using `$currstate = $web->GetState()`, modify $currstate, and then `$web->SetState($currstate)`.
+* A missing or incorrect HTTP header.  Many servers expect a valid `Referer` header to access certain resources.  Again, following a more natural path solves this issue.  Another example is when working with XHR requests, servers may expect the `X-Requested-With: XMLHttpRequest` header and also the GET/POST method to be correct.
+* The incorrect HTTP method is used.  If the web browser makes a POST request but a GET request is made using the toolkit, the server might not be able to handle the request.  Check and make sure that the correct HTTP method is being sent to the server.
+* The actual request is done inside a WebSocket connection.  Rare.  Watch for 101 Upgrade WebSocket response codes.  There could be communication happening over WebSocket that unlocks something.  Note that many WebSocket connections require valid session establishment via cookies first before they will function (see above).
+* A missing request to the server that involves none of the above.  Super rare.  For example, I have run into one system that required making a request for a specific JPEG image on a completely different server before it would allow a download to take place.  The server hosting the download was obviously checking session cookies behind the scenes to see if the user had made the request for the image on the other server before allowing the download to take place.  A real web browser tends to follow all instructions while web scrapers tend to take shortcuts.  There was no indicator that requesting the JPEG was required.  Requesting each URL in the returned HTML and then narrowing things down to the specific request revealed how the system worked.  A clever attempt to prevent scraping but easily dealt with.
+* Running the request from a different IP address from the web browser.  CloudFlare, in particular, has detection systems in place for requests originating from DigitalOcean, AWS, Azure, Tor, web proxies, etc. and can deliver alternate content than would be delivered to a local IP address.  CloudFlare is a popular frontend caching proxy/CDN system for a backend website.  Some tools exist that can sometimes un-proxy a domain to reveal the original backend server IP address.  Connecting directly by IP address instead of domain name requires special treatment when using the toolkit (i.e. a custom `Host` header, custom SSL/TLS setup, etc).  It can be done but is a little tricky/finicky to get right.
+
+There are probably plenty of other sneaky things floating around out there but those tips cover 98% of the more difficult stuff when running into it.  Basically, problems arise from not perfectly replicating the parts of requests that the server side assumes will reasonably exist under normal circumstances.  Enabling debugging mode for requests using the toolkit and dumping request + responses to the screen may also reveal differences between what the browser is sending/receiving and what code using the toolkit is sending/receiving.
+
 Offline Downloading
 -------------------
 
