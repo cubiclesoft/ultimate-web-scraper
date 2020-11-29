@@ -5,7 +5,7 @@ A PHP library of tools designed to handle all of your web scraping needs under a
 
 This tookit also comes with classes for creating custom web servers and WebSocket servers.  That custom API you want the average person to install on their home computer or deploy to devices in the enterprise just became easier to deploy.
 
-[![Donate](https://cubiclesoft.com/res/donate-shield.png)](https://cubiclesoft.com/donate/)
+[![Donate](https://cubiclesoft.com/res/donate-shield.png)](https://cubiclesoft.com/donate/) [![Discord](https://img.shields.io/discord/777282089980526602?label=chat&logo=discord)](https://cubiclesoft.com/product-support/github/)
 
 Features
 --------
