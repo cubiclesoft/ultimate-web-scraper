@@ -32,7 +32,7 @@ Example usage:
 
 		$pages[$key] = new WebBrowser();
 
-		// Definition:  public function WebBrowser::ProcessAsync($helper, $key, $callback, $url, $profile = "auto", $tempoptions = array())
+		// Definition:  public function WebBrowser::ProcessAsync($helper, $key, $callback, $url, $tempoptions = array())
 		$pages[$key]->ProcessAsync($helper, $key, NULL, $url);
 	}
 
