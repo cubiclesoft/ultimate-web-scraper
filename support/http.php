@@ -875,6 +875,7 @@
 
 							if ($result === false)  return self::CleanupErrorState($state, array("success" => false, "error" => self::HTTPTranslate("A stream_socket_enable_crypto() failure occurred.  Most likely cause:  Connection failure or incompatible crypto setup."), "errorcode" => "stream_socket_enable_crypto_failed"));
 							else if ($result === true)  $state["state"] = "connection_ready";
+							else  return array("success" => false, "error" => self::HTTPTranslate("Non-blocking enable crypto operation is not complete yet."), "errorcode" => "no_data");
 
 							if (isset($state["options"]["debug_callback"]) && is_callable($state["options"]["debug_callback"]))  call_user_func_array($state["options"]["debug_callback"], array("nextstate", $state["state"], &$state["options"]["debug_callback_opts"]));
 
