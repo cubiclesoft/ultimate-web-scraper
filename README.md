@@ -72,9 +72,10 @@ Example object-oriented usage:
 	// Retrieve a pointer object to the root node.
 	$root = $html->Get();
 
-	// Find all anchor tags.
+	// Find all anchor tags inside a div with a specific class.
+	// A useful CSS selector cheat sheet:  https://gist.github.com/magicznyleszek/809a69dd05e1d5f12d01
 	echo "All the URLs:\n";
-	$rows = $root->Find("a[href]");
+	$rows = $root->Find("div.someclass a[href]");
 	foreach ($rows as $row)
 	{
 		echo "\t" . $row->href . "\n";
@@ -124,9 +125,10 @@ Example direct ID usage:
 	// Use TagFilter to parse the content.
 	$html = TagFilter::Explode($result["body"], $htmloptions);
 
-	// Find all anchor tags.
+	// Find all anchor tags inside a div with a specific class.
+	// A useful CSS selector cheat sheet:  https://gist.github.com/magicznyleszek/809a69dd05e1d5f12d01
 	echo "All the URLs:\n";
-	$result2 = $html->Find("a[href]");
+	$result2 = $html->Find("div.someclass a[href]");
 	if (!$result2["success"])
 	{
 		echo "Error parsing/finding URLs.  " . $result2["error"] . "\n";
@@ -142,7 +144,7 @@ Example direct ID usage:
 
 	// Find all table rows that have 'th' tags.
 	// The 'tr' tag IDs are returned.
-	$result2 = $html->Filter($hmtl->Find("tr"), "th");
+	$result2 = $html->Filter($html->Find("tr"), "th");
 	if (!$result2["success"])
 	{
 		echo "Error parsing/finding table rows.  " . $result2["error"] . "\n";
