@@ -282,12 +282,12 @@ The $options array accepts these options:
 * timeout - A boolean of false or a numeric value containing the maximum amount of time, in seconds, to take for all operations.
 * protocol - A string containing the preferred low-level protocol.  May be any supported protocol that the PHP stream_get_transports() function supports (e.g. "ssl", "tls", "tlsv1.2", "tcp").
 * connecttimeout - An integer containing the amount of time to wait for the connection to the host to succeed in seconds (Default is 10).
-* sslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled host.  Also supports "auto_cainfo", "auto_cn_match", and "auto_sni" options to define several context options automatically.
+* sslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled host.  Also supports "auto_cainfo", "auto_peer_name", "auto_cn_match", and "auto_sni" options to define several context options automatically.
 * proxyurl - A string containing the URL of a web proxy to pass the request through.
 * proxyprotocol - A string containing the preferred low-level protocol for the proxy.  May be any supported protocol that the PHP stream_get_transports() function supports (e.g. "ssl", "tls", "tlsv1.2", "tcp").
 * proxyconnect - A boolean that specifies that the request through the proxy should attempt to tunnel the request via HTTP CONNECT.
 * proxyconnecttimeout - An integer containing the amount of time to wait for the connection to the proxy to succeed in seconds (Default is 10).
-* proxysslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled proxy. Also supports "auto_cainfo", "auto_cn_match", and "auto_sni" options to define several context options automatically.
+* proxysslopts - An array of valid SSL context options key-value pairs to use when connection to a SSL-enabled proxy.  Also supports "auto_cainfo", "auto_peer_name", "auto_cn_match", and "auto_sni" options to define several context options automatically.
 * method - A string containing the HTTP method to use (e.g. "GET", "POST", "HEAD").  If not specified, other parameters are analyzed to determine the most likely method to use.
 * httpver - A string containing the HTTP version to use (Default is "1.1").
 * headers - An array containing key-value pairs to send to the server.  Headers are automatically normalized for HTTP.
@@ -388,7 +388,7 @@ Parameters:
 
 Returns:  Nothing.
 
-This internal static function processes the "auto_cainfo", "auto_cn_match", and "auto_sni" options for "sslopts" and "proxysslopts" for SSL/TLS context purposes.
+This internal static function processes the "auto_cainfo", "auto_peer_name", "auto_cn_match", and "auto_sni" options for "sslopts" and "proxysslopts" for SSL/TLS context purposes.
 
 HTTP::ExtractFilename($dirfile)
 -------------------------------

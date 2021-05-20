@@ -526,7 +526,7 @@ Connecting to a SSL/TLS enabled server is fraught with difficulties.  SSL/TLS co
 * The server (or client) SSL/TLS certificate has expired.  Not much can be done here except completely disable SSL validation.
 * A bug in Ultimate Web Scraper Toolkit exposed due to underlying TLS bugs in PHP.  This is really rare though.
 
-PHP does not expose much of the underlying SSL/TLS layer to applications when establishing connections, which makes it incredibly difficult to diagnose certain issues with SSL/TLS.  To diagnose network related problems, use the 'openssl s_client' command line tool from the same host the problematic script is running on.  Setting the "cafile", "auto_cn_match", and "auto_sni" SSL options may help too.
+PHP does not expose much of the underlying SSL/TLS layer to applications when establishing connections, which makes it incredibly difficult to diagnose certain issues with SSL/TLS.  To diagnose network related problems, use the 'openssl s_client' command line tool from the same host the problematic script is running on.  Setting the "cafile", "auto_peer_name", "auto_cn_match", and "auto_sni" SSL options may help too.
 
 If all else fails and secure, encrypted communication with the server are not required, disable the "verify_peer" and "verify_peer_name" SSL options and enable the "allow_self_signed" SSL option.  Note that making these changes results in a connection that is no more secure that plaintext HTTP.  Don't send passwords or other information that should be kept secure.  This solution should only ever be used as a last resort.  Always try to get the toolkit working with verification first.
 

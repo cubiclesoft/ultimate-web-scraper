@@ -1824,7 +1824,12 @@
 					if (isset($options["source_ip"]))  $context["socket"] = array("bindto" => $options["source_ip"] . ":0");
 					if ($secure)
 					{
-						if (!isset($options["sslopts"]) || !is_array($options["sslopts"]))  $options["sslopts"] = self::GetSafeSSLOpts();
+						if (!isset($options["sslopts"]) || !is_array($options["sslopts"]))
+						{
+							$options["sslopts"] = self::GetSafeSSLOpts();
+							$options["sslopts"]["auto_peer_name"] = true;
+						}
+
 						self::ProcessSSLOptions($options, "sslopts", $host);
 						foreach ($options["sslopts"] as $key => $val)  @stream_context_set_option($context, "ssl", $key, $val);
 					}
