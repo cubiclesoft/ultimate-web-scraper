@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP HTTP class.
-	// (C) 2018 CubicleSoft.  All Rights Reserved.
+	// (C) 2021 CubicleSoft.  All Rights Reserved.
 
 	class HTTP
 	{

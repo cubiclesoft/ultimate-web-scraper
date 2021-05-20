@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP web browser state emulation class.
-	// (C) 2016 CubicleSoft.  All Rights Reserved.
+	// (C) 2021 CubicleSoft.  All Rights Reserved.
 
 	// Requires the CubicleSoft PHP HTTP class for HTTP/HTTPS.
 	class WebBrowser
