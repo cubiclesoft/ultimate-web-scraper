@@ -23,6 +23,7 @@ Features
 * Includes a fast and powerful tag filtering library (TagFilter) for correctly parsing really difficult HTML content (e.g. Microsoft Word HTML) and can easily extract desired content from HTML and XHTML using CSS3 compatible selectors.
 * TagFilter::HTMLPurify() produces XSS defense results on par with HTML Purifier.
 * Includes the legacy Simple HTML DOM library to parse and extract desired content from HTML.  NOTE:  Simple HTML DOM is only included for legacy reasons.  TagFilter is much faster and more accurate as well as more powerful and flexible.
+* DNS over HTTPS support.
 * An unncessarily [feature-laden web server class](https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/web_server.md) with optional SSL/TLS support.  Run a web server written in pure PHP.  Why?  Because you can, that's why.
 * A decent [WebSocket server class](https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/websocket_server.md) is included too.  For a scalable version of the WebSocket server class, see [Data Relay Center](https://github.com/cubiclesoft/php-drc).
 * Can be used to [download entire websites for offline use](#offline-downloading).
