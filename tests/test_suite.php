@@ -390,6 +390,7 @@
 	$urls = array(
 		"http://www.barebonescms.com/",
 		"http://www.cubiclesoft.com/",
+		"http://\xF0\x9F\x98\x80.cubiclesoft.com/"
 	);
 
 	// Build the queue.
