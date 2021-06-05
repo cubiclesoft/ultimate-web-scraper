@@ -1644,7 +1644,7 @@
 			$ver = explode(".", $options["httpver"]);
 			if (isset($options["headers"]["Host"]))
 			{
-				$url2 = self::ExtractURL("http://" . $options["headers"]["Host"]));
+				$url2 = self::ExtractURL("http://" . $options["headers"]["Host"]);
 				$options["headers"]["Host"] = $url2["host"] . (isset($url2["port"]) && $url2["port"] != "" ? ":" . $url2["port"] : "");
 			}
 			if ((int)$ver[0] > 1 || ((int)$ver[0] == 1 && (int)$ver[1] >= 1))
