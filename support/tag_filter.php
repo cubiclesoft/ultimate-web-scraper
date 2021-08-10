@@ -1363,7 +1363,7 @@
 								switch ($rules[$x][$x2]["type"])
 								{
 									case "id":  $backtrack = (!isset($this->nodes[$id2]["attrs"]["id"]) || $this->nodes[$id2]["attrs"]["id"] !== $rules[$x][$x2]["id"]);  break;
-									case "element":  $backtrack = (strcasecmp($this->nodes[$id2]["tag"], (isset($rules[$x][$x2]["namespace"]) && $rules[$x][$x2]["namespace"] !== false ? $rules[$x][$x2]["namespace"] . ":" : "") . $rules[$x][$x2]["tag"]) !== 0);  break;
+									case "element":  $backtrack = ($rules[$x][$x2]["tag"] !== "*" && strcasecmp($this->nodes[$id2]["tag"], (isset($rules[$x][$x2]["namespace"]) && $rules[$x][$x2]["namespace"] !== false ? $rules[$x][$x2]["namespace"] . ":" : "") . $rules[$x][$x2]["tag"]) !== 0);  break;
 									case "class":  $backtrack = (!isset($this->nodes[$id2]["attrs"]["class"]) || !isset($this->nodes[$id2]["attrs"]["class"][$rules[$x][$x2]["class"]]));  break;
 									case "attr":
 									{
