@@ -559,7 +559,7 @@
 									}
 									else if ($type === "uri")
 									{
-										$value = str_replace(array("\0", "\r", "\n", "\t", " "), "", $value);
+										$value = str_replace(array("\0", "\r", "\n", "\t", " "), array("", "", "", "", "%20"), trim($value));
 										$pos = strpos($value, ":");
 										if ($pos !== false)  $value = preg_replace('/[^a-z]/', "", strtolower(substr($value, 0, $pos))) . substr($value, $pos);
 									}
