@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP WebSocketServer class.
-	// (C) 2016 CubicleSoft.  All Rights Reserved.
+	// (C) 2021 CubicleSoft.  All Rights Reserved.
 
 	// Make sure PHP doesn't introduce weird limitations.
 	ini_set("memory_limit", "-1");
@@ -281,7 +281,7 @@
 		{
 			$this->UpdateStreamsAndTimeout("", $timeout, $readfps, $writefps);
 
-			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array());
+			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array(), "accepted" => array(), "read" => array(), "write" => array());
 			if (!count($readfps) && !count($writefps))  return $result;
 
 			$result2 = self::FixedStreamSelect($readfps, $writefps, $exceptfps, $timeout);
@@ -307,7 +307,9 @@
 					// Enable non-blocking mode.
 					stream_set_blocking($fp, 0);
 
-					$this->InitNewClient($fp);
+					$client = $this->InitNewClient($fp);
+
+					$result["accepted"][$client->id] = $client;
 				}
 
 				unset($result["readfps"]["ws_s"]);
@@ -323,6 +325,8 @@
 				if (!isset($this->clients[$id]))  continue;
 
 				$client = $this->clients[$id];
+
+				$result["read"][$id] = $client;
 
 				if ($client->websocket !== false)
 				{
@@ -413,6 +417,8 @@
 				if (!isset($this->clients[$id]))  continue;
 
 				$client = $this->clients[$id];
+
+				$result["write"][$id] = $client;
 
 				if ($client->writedata === "")  $this->ProcessClientQueuesAndTimeoutState($result, $id, false, true);
 				else
