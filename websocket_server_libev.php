@@ -1,6 +1,6 @@
 <?php
 	// CubicleSoft PHP WebSocketServer class with libev support.
-	// (C) 2019 CubicleSoft.  All Rights Reserved.
+	// (C) 2021 CubicleSoft.  All Rights Reserved.
 
 	if (!class_exists("WebSocketServer", false))  require_once str_replace("\\", "/", dirname(__FILE__)) . "/websocket_server.php";
 
@@ -25,7 +25,7 @@
 
 		public function Internal_LibEvHandleEvent($watcher, $revents)
 		{
-			if ($revents & Ev::READ)  $this->ev_read_ready[$watcher->data] = $watcher->fd;
+			if (($revents & Ev::READ) || ($revents & Ev::ERROR))  $this->ev_read_ready[$watcher->data] = $watcher->fd;
 			if ($revents & Ev::WRITE)  $this->ev_write_ready[$watcher->data] = $watcher->fd;
 		}
 
@@ -82,7 +82,7 @@
 		{
 			if ($timeout === false || $timeout > $this->defaultkeepalive)  $timeout = $this->defaultkeepalive;
 
-			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array());
+			$result = array("success" => true, "clients" => array(), "removed" => array(), "readfps" => array(), "writefps" => array(), "exceptfps" => array(), "accepted" => array(), "read" => array(), "write" => array());
 			if (!count($this->ev_watchers) && !count($readfps) && !count($writefps))  return $result;
 
 			$this->ev_read_ready = array();
