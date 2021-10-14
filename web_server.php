@@ -198,7 +198,7 @@
 
 			if (isset($client->headers["Host"]))  $client->headers["Host"] = preg_replace('/[^a-z0-9.:\[\]_-]/', "", strtolower($client->headers["Host"]));
 
-			$client->url = ($this->ssl ? "https" : "http") . "://" . (isset($client->headers["Host"]) ? $client->headers["Host"] : "localhost") . $request["path"];
+			$client->url = (substr($request["path"], 0, 1) === "/" ? ($client->ssl === "on" ? "https" : "http") . "://" . (isset($client->headers["Host"]) ? $client->headers["Host"] : "localhost") . $request["path"] : $request["path"]);
 
 			// Process cookies.
 			$client->cookievars = array();
@@ -563,6 +563,7 @@
 
 			$client->id = $this->nextclientid;
 			$client->mode = "init";
+			$client->ssl = ($this->ssl ? "start" : "off");
 			$client->httpstate = false;
 			$client->readdata = "";
 			$client->request = false;
@@ -681,7 +682,7 @@
 						$client->httpstate["data"] = "";
 						$client->httpstate["bodysize"] = false;
 						$client->httpstate["chunked"] = false;
-						$client->httpstate["secure"] = $this->ssl;
+						$client->httpstate["secure"] = ($client->ssl === "on");
 						$client->httpstate["state"] = "send_data";
 
 						$client->SetResponseCode(200);
@@ -801,7 +802,7 @@
 							$this->HandleResponseCompleted($id, $result2);
 
 							// Reset client for another request.
-							$client->mode = "init_request";
+							$client->mode = ($client->ssl === "start" ? "init" : "init_request");
 							$client->readdata = $client->httpstate["nextread"];
 							$client->httpstate = false;
 							$client->request = false;
@@ -862,9 +863,14 @@
 					{
 						case "init":
 						{
-							$result2 = ($this->ssl ? @stream_socket_enable_crypto($client->fp, true, STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLSv1_2_SERVER) : true);
+							$result2 = ($client->ssl === "start" ? @stream_socket_enable_crypto($client->fp, true, STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLSv1_2_SERVER) : true);
 
-							if ($result2 === true)  $client->mode = "init_request";
+							if ($result2 === true)
+							{
+								if ($client->ssl === "start")  $client->ssl = "on";
+
+								$client->mode = "init_request";
+							}
 							else if ($result2 === false)
 							{
 								@fclose($client->fp);
