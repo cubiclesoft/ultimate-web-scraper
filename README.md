@@ -90,6 +90,12 @@ Example object-oriented usage:
 	{
 		echo "\t" . $row->GetOuterHTML() . "\n\n";
 	}
+
+	// Find the OpenGraph URL in the meta tags of the HTML (if any).
+	// For example:  <meta property="og:url" content="SOMEURL" />
+	// The next line first finds all matching rows and then current() returns the first row.
+	$metaurl = $root->Find("meta[property=\"og:url\"]")->current();
+	if ($metaurl !== false)  echo trim($metaurl->content) . "\n\n";
 ?>
 ```
 
