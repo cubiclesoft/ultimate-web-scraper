@@ -723,6 +723,9 @@
 					{
 						if ($client->requests)  $result["removed"][$id] = array("result" => $result2, "client" => $client);
 
+						// Client was closed by the underlying library.
+						$client->fp = false;
+
 						$this->RemoveClient($id);
 					}
 					else if ($client->requestcomplete === false && $client->httpstate["state"] !== "request_line" && $client->httpstate["state"] !== "headers")
@@ -844,6 +847,9 @@
 						$this->HandleResponseCompleted($id, $result2);
 
 						$result["removed"][$id] = array("result" => $result2, "client" => $client);
+
+						// Client was closed by the underlying library.
+						$client->fp = false;
 
 						$this->RemoveClient($id);
 					}
