@@ -99,7 +99,7 @@
 							$headers["Cache-Control"] = "no-cache";
 							$headers["User-Agent"] = HTTP::GetUserAgent("opera");
 						}
-						else if ($profile == "safari" || $profile == "chrome" || ($profile == "auto" && ($this->data["useragent"] == "safari" || $this->data["useragent"] == "chrome")))
+						else if ($profile == "safari" || $profile == "edge" || $profile == "chrome" || ($profile == "auto" && ($this->data["useragent"] == "safari" || $this->data["useragent"] == "edge" || $this->data["useragent"] == "chrome")))
 						{
 							if ($fileext == "css")  $headers["Accept"] = "text/css,*/*;q=0.1";
 							else if ($fileext == "png" || $fileext == "jpg" || $fileext == "jpeg" || $fileext == "gif" || $fileext == "svg" || $fileext == "js")  $headers["Accept"] = "*/*";
