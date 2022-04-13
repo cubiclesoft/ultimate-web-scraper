@@ -1,6 +1,6 @@
 <?php
 	// Test suite.
-	// (C) 2018 CubicleSoft.  All Rights Reserved.
+	// (C) 2022 CubicleSoft.  All Rights Reserved.
 
 	if (!isset($_SERVER["argc"]) || !$_SERVER["argc"])
 	{
@@ -8,6 +8,10 @@
 
 		exit();
 	}
+
+	error_reporting(E_ALL);
+	ini_set("display_startup_errors", true);
+	ini_set("display_errors", "1");
 
 	// Temporary root.
 	$rootpath = str_replace("\\", "/", dirname(__FILE__));
@@ -346,6 +350,7 @@
 	var_dump($root);
 	echo "\n";
 
+	echo "First link:  " . $root->Find("a[href]")->current()->href . "\n\n";
 	DisplayOOTFNFindResults("Find('a[href]')", $root->Find("a[href]"));
 	DisplayOOTFNFindResults("Find('p')->Filter('a[href]')", $root->Find("p")->Filter("a[href]"));
 
