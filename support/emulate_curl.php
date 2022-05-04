@@ -439,7 +439,7 @@
 
 		function curl_error($ch)
 		{
-			global $curl_init__map;
+			global $curl_init__map, $curl_error__map;
 
 			$key = get_check_curl_init_key($ch);
 
@@ -453,7 +453,7 @@
 			$key = get_check_curl_init_key($ch);
 
 			$ch = fopen(__FILE__, "rb");
-			$key2 = get_curl_init_key($resource);
+			$key2 = get_curl_init_key($ch);
 			$curl_init__map[$key2] = $curl_init__map[$key];
 
 			return $ch;
@@ -644,7 +644,7 @@
 				}
 				$certtype = strtoupper(isset($curl_init__map[$key]["options"][CURLOPT_SSLCERTTYPE]) ? $curl_init__map[$key]["options"][CURLOPT_SSLCERTTYPE] : "PEM");
 				$keytype = strtoupper(isset($curl_init__map[$key]["options"][CURLOPT_SSLKEYTYPE]) ? $curl_init__map[$key]["options"][CURLOPT_SSLKEYTYPE] : "PEM");
-				if ($certpass !== $keypass || $cert !== "PEM")
+				if ($certpass !== $keypass || $certtype !== "PEM")
 				{
 					$curl_init__map[$key]["errorno"] = CURLE_SSL_CONNECT_ERROR;
 					$curl_init__map[$key]["errorinfo"] = HTTP::HTTPTranslate("CURLOPT_SSLCERTTYPE and CURLOPT_SSLKEYTYPE must be PEM format.");
