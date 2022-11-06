@@ -208,7 +208,7 @@ Example usage:
 	$result = $web->Process($url);
 
 	// Save state for later (cookies, etc).
-	file_put_contents("web1.json", json_encode($web->GetState()));
+	file_put_contents("web1.json", json_encode($web->GetState(), JSON_UNESCAPED_SLASHES));
 ?>
 ```
 
@@ -220,7 +220,7 @@ Example usage:
 	$url = "http://www.somesite.com/somewhereelse/";
 
 	// Load the previous state.
-	$prevstate = json_decode(file_get_contents("web1.json"));
+	$prevstate = json_decode(file_get_contents("web1.json"), true);
 	$web = new WebBrowser($prevstate);
 
 	$result = $web->Process($url);
